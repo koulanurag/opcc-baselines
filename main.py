@@ -75,6 +75,8 @@ def get_args(arg_str: str = None):
                                help='n-step predictor for model ')
     dynamics_args.add_argument('--dynamics-seed', default=0, type=int,
                                help='seed for training dynamics ')
+    dynamics_args.add_argument('--dynamics-log-interval', default=1, type=int,
+                               help='epoch interval to test dynamics ')
     dynamics_args.add_argument('--dynamics-test-interval', default=1, type=int,
                                help='epoch interval to test dynamics ')
     dynamics_args.add_argument('--dynamics-checkpoint-interval', type=int,
@@ -86,7 +88,7 @@ def get_args(arg_str: str = None):
                                help='no. of test episodes for evaluating '
                                     'dynamics with base policies')
 
-    dynamics_args.add_argument('--num-epochs', type=int, default=100,
+    dynamics_args.add_argument('--update-count', type=int, default=100,
                                help='epochs for training ')
     dynamics_args.add_argument('--batch-count', type=int, default=20,
                                help='batches per epochs ')
@@ -165,8 +167,8 @@ def get_args(arg_str: str = None):
 
 
 if __name__ == '__main__':
-    args, job_args, path_args, uncertainty_test_args, \
-    wandb_args, dynamics_args, queries_args = get_args()
+    (args, job_args, path_args, uncertainty_args, wandb_args, dynamics_args,
+     queries_args) = get_args()
 
     # d4rl setup
     os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = '1'
@@ -175,7 +177,7 @@ if __name__ == '__main__':
 
     if args.job == 'train-dynamics':
         config = BaseConfig(args, dynamics_args)
-        if args.use_wandb:
+        if args.use_wandb:  # used for experiment tracking
             wandb.init(job_type=args.job,
                        dir=args.wandb_dir,
                        project=args.wandb_project_name + '-' + args.job,
