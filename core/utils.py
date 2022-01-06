@@ -3,7 +3,8 @@ import os
 
 
 def init_logger(base_path: str, name: str):
-    formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s][%(filename)s>%(funcName)s] ==> %(message)s')
+    formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s]'
+                                  '[%(filename)s>%(funcName)s] => %(message)s')
     file_path = os.path.join(base_path, name + '.log')
     logger = logging.getLogger(name)
     logging.getLogger().handlers.clear()
