@@ -71,7 +71,7 @@ def get_args(arg_str: str = None):
                                help='enables training of terminal flag')
     dynamics_args.add_argument('--use-dropout', action='store_true',
                                help='uses dropout within models')
-    dynamics_args.add_argument('--max-n-step-model', default=1, type=int,
+    dynamics_args.add_argument('--n-step-model', default=1, type=int,
                                help='n-step predictor for model ')
     dynamics_args.add_argument('--dynamics-seed', default=0, type=int,
                                help='seed for training dynamics ')

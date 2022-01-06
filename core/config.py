@@ -4,9 +4,10 @@ from collections import defaultdict
 
 import gym
 import numpy as np
-from core.neural_env import NeuralEnv
 
-from core.networks import EnsembleObsDynamicsNetwork
+# from core.neural_env import NeuralEnv
+#
+from core.networks import EnsembleDynamicsNetwork
 
 ACTION_SCALE = defaultdict(lambda: defaultdict(lambda: 1))
 
@@ -17,12 +18,18 @@ class BaseConfig(object):
 
         # hyper-parameters hash
         dynamics_args_str = [str(vars(args)[hp.dest])
-                             for hp in sorted(dynamics_args._group_actions, key=lambda x: x.dest)]
-        dyn_hp_hash = hashlib.sha224(bytes(''.join(sorted(dynamics_args_str)), 'ascii')).hexdigest()
+                             for hp in sorted(dynamics_args._group_actions,
+                                              key=lambda x: x.dest)]
+        dyn_hp_hash = hashlib.sha224(
+            bytes(''.join(sorted(dynamics_args_str)), 'ascii')).hexdigest()
 
-        base_path = os.path.join(args.result_dir, args.env_name, args.dataset_name)
-        self.dynamics_exp_dir_path = os.path.join(base_path, 'dynamic:{}'.format(dyn_hp_hash))
-        self.dynamics_exp_dir_path = os.path.abspath(self.dynamics_exp_dir_path)
+        base_path = os.path.join(args.result_dir, args.env_name,
+                                 args.dataset_name)
+        self.dynamics_exp_dir_path = os.path.join(base_path,
+                                                  'dynamic:{}'.format(
+                                                      dyn_hp_hash))
+        self.dynamics_exp_dir_path = os.path.abspath(
+            self.dynamics_exp_dir_path)
 
         # create directories
         os.makedirs(self.dynamics_exp_dir_path, exist_ok=True)
@@ -42,13 +49,14 @@ class BaseConfig(object):
                                  size=(n, len(self.action_space_low))).tolist()
 
     def get_uniform_dynamics_network(self):
-        return EnsembleObsDynamicsNetwork(num_ensemble=self.args.num_ensemble,
-                                          obs_size=self.observation_size,
-                                          hidden_size=self.args.hidden_size,
-                                          action_size=self.action_size,
-                                          deterministic=self.args.deterministic,
-                                          dynamics_type=self.args.dynamics_type,
-                                          constant_prior=self.args.constant_prior)
+        return EnsembleDynamicsNetwork(num_ensemble=self.args.num_ensemble,
+                                       obs_size=self.observation_size,
+                                       action_size=self.action_size,
+                                       hidden_size=self.args.hidden_size,
+                                       n_step=self.args.n_step_model,
+                                       deterministic=self.args.deterministic,
+                                       dynamics_type=self.args.dynamics_type,
+                                       constant_prior=self.args.constant_prior)
 
     def new_game(self):
         return gym.make('{}'.format(self.args.env_name))
@@ -58,10 +66,13 @@ class BaseConfig(object):
         envs = SyncVectorEnv([self.new_game for _ in range(num_envs)])
         return envs
 
-    def neural_env(self, init_observations, ensemble_dynamics_network, num_envs=1):
+    def neural_env(self, init_observations, ensemble_dynamics_network,
+                   num_envs=1):
         envs = self.new_vectorized_game(num_envs)
-        return NeuralEnv(self.__args.env_name, init_observations, ensemble_dynamics_network,
-                         envs.action_space, self.max_episode_steps, num_env=num_envs,
+        return NeuralEnv(self.__args.env_name, init_observations,
+                         ensemble_dynamics_network,
+                         envs.action_space, self.max_episode_steps,
+                         num_env=num_envs,
                          device=self.__args.device)
 
     @property
@@ -78,8 +89,13 @@ class BaseConfig(object):
 
     @property
     def dynamics_checkpoint_path(self):
-        return os.path.join(self.dynamics_exp_dir_path, 'dynamics_checkpoint.p')
+        return os.path.join(self.dynamics_exp_dir_path,
+                            'dynamics_checkpoint.p')
 
     @property
     def dynamics_logs_dir_path(self):
         return os.path.join(self.dynamics_exp_dir_path, 'dynamics_logs')
+
+    @property
+    def device(self):
+        return self.__args.device
