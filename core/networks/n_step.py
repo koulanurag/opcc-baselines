@@ -11,14 +11,14 @@ class NstepDynamicsNetwork(nn.Module):
         self.__n_step = n_step
         for i in range(n_step):
             if dynamics_type == 'feed-forward':
-                _net = FeedForwardDynamicsNetwork(obs_size,
-                                                  (action_size * (i + 1)),
-                                                  hidden_size,
-                                                  deterministic,
-                                                  'silu')
+                net = FeedForwardDynamicsNetwork(obs_size,
+                                                 (action_size * (i + 1)),
+                                                 hidden_size,
+                                                 deterministic,
+                                                 'silu')
             else:
                 raise ValueError()
-            setattr(self, 'step_{}'.format(i + 1), _net)
+            setattr(self, 'step_{}'.format(i + 1), net)
 
     def update(self, replay_buffer, batch_count, batch_size):
         loss = defaultdict(lambda: defaultdict(lambda: 0))
