@@ -22,33 +22,66 @@ def weights_init(m):
         m.bias.data.fill_(0.0)
 
 
-class FeedForwardDynamicsNetwork(Base, nn.Module):
+class FFDynamicsNetwork(Base, nn.Module):
+    """
+    Feed-forward dynamics network
+    """
+
     def __init__(self, obs_size, action_size, hidden_size, deterministic=True,
-                 activation_function='relu', lr=1e-3):
+                 constant_prior=False, activation_function='relu', lr=1e-3):
         Base.__init__(self, obs_size=obs_size,
                       action_size=action_size,
-                      deterministic=deterministic)
+                      deterministic=deterministic,
+                      constant_prior=constant_prior)
         nn.Module.__init__(self)
+        self.__prior_prefix = 'prior_'
+        prefixes = [] if constant_prior else [self.__prior_prefix]
 
         self.act_fn = getattr(F, activation_function)
-        self.fc1 = nn.Linear(self.obs_size + self.action_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, hidden_size)
-        self.fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
+        for prefix in [''] + prefixes:
+            setattr(self, prefix + 'fc1',
+                    nn.Linear(self.obs_size + self.action_size, hidden_size))
+            setattr(self, prefix + 'fc2',
+                    nn.Linear(hidden_size, hidden_size))
+            setattr(self, prefix + 'fc3',
+                    nn.Linear(hidden_size, hidden_size))
+            setattr(self, prefix + 'fc4'.format(prefix),
+                    nn.Linear(hidden_size, 2 * obs_size + 2))
+
+        for name, param in self.named_parameters():
+            if self.__prior_prefix in name:
+                param.requires_grad = False
 
         max_logvar = (torch.ones((1, obs_size + 1)).float() / 2)
         min_logvar = (-torch.ones((1, obs_size + 1)).float() * 10)
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        self.optimizer = torch.optim.Adam([param
+                                           for name, param in
+                                           self.named_parameters()
+                                           if self.__prior_prefix not in name],
+                                          lr=lr)
         self.apply(weights_init)
 
     def to(self, device, **kwargs):
         self.max_logvar = self.max_logvar.to(device)
         self.min_logvar = self.min_logvar.to(device)
-        return super(FeedForwardDynamicsNetwork, self).to(device, **kwargs)
+        return super(FFDynamicsNetwork, self).to(device, **kwargs)
 
-    def logits(self, obs, action):
+    def __prior_logits(self, obs, action):
+        assert len(obs.shape) == 2
+        assert len(action.shape) == 2
+
+        hidden = self.act_fn(self.prior_fc1(torch.cat((obs, action), dim=1)))
+        hidden = self.act_fn(self.prior_fc2(hidden))
+        hidden = self.act_fn(self.prior_fc3(hidden))
+        output = self.prior_fc4(hidden)
+
+        mu = output[:, :self.obs_size + 1]
+        log_var_logit = output[:, self.obs_size + 1:]
+        return mu, log_var_logit
+
+    def __logits(self, obs, action):
         assert len(obs.shape) == 2
         assert len(action.shape) == 2
 
@@ -62,7 +95,14 @@ class FeedForwardDynamicsNetwork(Base, nn.Module):
         return mu, log_var_logit
 
     def forward(self, obs, action):
-        mu, log_var_logit = self.logits(obs, action)
+        mu, log_var_logit = self.__logits(obs, action)
+        if self.constant_prior:
+            with torch.no_grad():
+                prior_mu, prior_log_var_logit = self.__prior_logits(obs,
+                                                                    action)
+                mu += prior_mu
+                log_var_logit += prior_log_var_logit
+
         log_var = self.max_logvar - F.softplus(self.max_logvar - log_var_logit)
         log_var = self.min_logvar + F.softplus(log_var - self.min_logvar)
 
