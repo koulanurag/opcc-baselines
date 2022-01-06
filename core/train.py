@@ -1,13 +1,12 @@
 import logging
 import random
-from collections import defaultdict
 
 import cque
 import torch
 import wandb
-from core.replay_buffer import ReplayBuffer
 
 from core.config import BaseConfig
+from core.replay_buffer import ReplayBuffer
 from core.utils import init_logger
 
 
@@ -37,8 +36,7 @@ def train_dynamics(config: BaseConfig):
                                              config.args.dynamics_batch_size)
         # log
         if config.args.dynamics_log_interval:
-
-            # log to File
+            # log to file
             _msg = '#{:<10}'.format(update_i)
             for k1, v1 in loss.items():
                 for k2, v2 in v1.items():
