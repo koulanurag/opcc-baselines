@@ -165,13 +165,13 @@ def get_args(arg_str: str = None):
     args.device = ('cuda' if (not args.no_cuda) and
                              torch.cuda.is_available() else 'cpu')
 
-    return args, job_args, path_args, uncertain_args, wandb_args, \
-           dynamics_args, queries_args
+    return args, job_args, path_args, wandb_args, \
+           dynamics_args, queries_args, uncertain_args
 
 
 if __name__ == '__main__':
-    (args, job_args, path_args, uncertainty_args, wandb_args, dynamics_args,
-     queries_args) = get_args()
+    (args, job_args, path_args, wandb_args, dynamics_args,
+     queries_args, uncertainty_args) = get_args()
 
     # d4rl setup
     os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = '1'
@@ -186,7 +186,14 @@ if __name__ == '__main__':
                        project=args.wandb_project_name + '-' + args.job,
                        settings=wandb.Settings(start_method="thread"))
             wandb.config.update(job_args)
-            wandb.config.update(dynamics_args)
+            wandb.config.update(dynamics_args, allow_val_change=True)
+
         train_dynamics(config)
+
+    elif args.job == 'evaluate-queries':
+        if args.restore_dynamics_from_wandb:
+            assert args.wandb_dynamics_run_id is not None, \
+                'w&b id cannot be {}'.format(args.wandb_dynamics_run_id)
+
     else:
         raise NotImplementedError()

@@ -54,8 +54,8 @@ class FFDynamicsNetwork(Base, nn.Module):
         self.apply(weights_init)
 
     def to(self, device, **kwargs):
-        self.max_logvar = self.max_logvar.to(device)
-        self.min_logvar = self.min_logvar.to(device)
+        self.max_logvar.data = self.max_logvar.to(device)
+        self.min_logvar.data = self.min_logvar.to(device)
         return super(FFDynamicsNetwork, self).to(device, **kwargs)
 
     def __prior_logits(self, obs, action):
