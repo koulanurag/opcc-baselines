@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
 from .base import Base
 from .utils import weights_init
 
@@ -11,7 +12,8 @@ class FFDynamicsNetwork(Base, nn.Module):
     """
 
     def __init__(self, obs_size, action_size, hidden_size, deterministic=True,
-                 constant_prior=False, activation_function='relu', lr=1e-3):
+                 constant_prior=False, activation_function='relu', lr=1e-3,
+                 prior_scale=1):
         Base.__init__(self,
                       obs_size=obs_size,
                       action_size=action_size,
@@ -19,6 +21,7 @@ class FFDynamicsNetwork(Base, nn.Module):
                       constant_prior=constant_prior)
         nn.Module.__init__(self)
 
+        self._prior_scale = prior_scale
         self._prior_prefix = 'prior_'
         prefixes = ['']
         if self.constant_prior:
@@ -68,7 +71,7 @@ class FFDynamicsNetwork(Base, nn.Module):
         log_var_logit = output[:, self.obs_size + 1:]
         return mu, log_var_logit
 
-    def __logits(self, obs, action):
+    def _logits(self, obs, action):
         assert len(obs.shape) == 2
         assert len(action.shape) == 2
 
@@ -82,13 +85,13 @@ class FFDynamicsNetwork(Base, nn.Module):
         return mu, log_var_logit
 
     def forward(self, obs, action):
-        mu, log_var_logit = self.__logits(obs, action)
+        mu, log_var_logit = self._logits(obs, action)
         if self.constant_prior:
             with torch.no_grad():
                 prior_mu, prior_log_var_logit = self.__prior_logits(obs,
                                                                     action)
-                mu += prior_mu
-                log_var_logit += prior_log_var_logit
+                mu += self.prior_scale * prior_mu
+                log_var_logit += self.prior_scale * prior_log_var_logit
 
         log_var = self.max_logvar - F.softplus(self.max_logvar - log_var_logit)
         log_var = self.min_logvar + F.softplus(log_var - self.min_logvar)
