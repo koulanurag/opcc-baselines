@@ -18,12 +18,11 @@ def train_dynamics(config: BaseConfig):
     dynamics_network = config.get_uniform_dynamics_network().to(config.device)
     dynamics_network.train()
 
-    # create replay buffers
+    # create replay buffers with bootstrap sampling
     dataset = cque.get_sequence_dataset(config.args.env_name,
                                         config.args.dataset_name)
     replay_buffers = {}
     for ensemble_i in range(dynamics_network.num_ensemble):
-        # bootstrap sampling
         _dataset = random.choices(dataset, k=len(dataset))
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
@@ -36,15 +35,12 @@ def train_dynamics(config: BaseConfig):
                                              config.args.dynamics_batch_size)
         # log
         if config.args.dynamics_log_interval:
-            # log to file
             _msg = '#{:<10}'.format(update_i)
             for k1, v1 in loss.items():
                 for k2, v2 in v1.items():
                     for k3, v3 in v2.items():
                         _msg += '{}/{}/{} loss:{:<8.3f}'.format(k1, k2, k3, v3)
             logging.getLogger('train_dynamics').info(_msg)
-
-            # log to wandb
             if config.args.use_wandb:
                 wandb.log({**{'update': update_i}, **loss})
 
