@@ -12,13 +12,15 @@ class AgDynamicsNetwork(FFDynamicsNetwork):
     """
 
     def __init__(self, obs_size, action_size, hidden_size, deterministic=True,
-                 constant_prior=False, activation_function='relu', lr=1e-3):
+                 constant_prior=False, activation_function='relu', lr=1e-3,
+                 prior_scale=1):
         # obs = obs + next_obs + action + one_hot for obs and reward
         super().__init__(3 * obs_size, action_size + 1, hidden_size,
                          deterministic=deterministic,
                          constant_prior=constant_prior,
                          activation_function=activation_function,
-                         lr=lr)
+                         lr=lr,
+                         prior_scale=prior_scale)
 
         setattr(self, 'fc4', nn.Linear(hidden_size, 2))
         if self.constant_prior:
