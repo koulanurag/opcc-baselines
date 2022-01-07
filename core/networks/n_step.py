@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from .ff import FFDynamicsNetwork
+from .autoregressive import AgDynamicsNetwork
 
 
 class NstepDynamicsNetwork:
@@ -12,6 +13,15 @@ class NstepDynamicsNetwork:
         for i in range(n_step):
             if dynamics_type == 'feed-forward':
                 net = FFDynamicsNetwork(obs_size,
+                                        (action_size * (i + 1)),
+                                        hidden_size=hidden_size,
+                                        constant_prior=constant_prior,
+                                        deterministic=deterministic,
+                                        activation_function='silu',
+                                        prior_scale=prior_scale)
+
+            elif dynamics_type == 'autoregressive':
+                net = AgDynamicsNetwork(obs_size,
                                         (action_size * (i + 1)),
                                         hidden_size=hidden_size,
                                         constant_prior=constant_prior,
