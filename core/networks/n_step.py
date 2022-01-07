@@ -1,12 +1,12 @@
-from .ff import FFDynamicsNetwork
 from collections import defaultdict
-import torch.nn as nn
+
+from .ff import FFDynamicsNetwork
 
 
-class NstepDynamicsNetwork(nn.Module):
+class NstepDynamicsNetwork:
     def __init__(self, obs_size, action_size, hidden_size, n_step=1,
                  dynamics_type='feed-forward', deterministic=True,
-                 constant_prior=False):
+                 constant_prior=False, prior_scale=1.0):
         super().__init__()
         self.__n_step = n_step
         for i in range(n_step):
@@ -16,7 +16,8 @@ class NstepDynamicsNetwork(nn.Module):
                                         hidden_size=hidden_size,
                                         constant_prior=constant_prior,
                                         deterministic=deterministic,
-                                        activation_function='silu')
+                                        activation_function='silu',
+                                        prior_scale=prior_scale)
             else:
                 raise ValueError()
             setattr(self, 'step_{}'.format(i + 1), net)

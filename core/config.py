@@ -56,7 +56,8 @@ class BaseConfig(object):
                                        n_step=self.args.n_step_model,
                                        deterministic=self.args.deterministic,
                                        dynamics_type=self.args.dynamics_type,
-                                       constant_prior=self.args.constant_prior)
+                                       constant_prior=self.args.constant_prior,
+                                       prior_scale=self.args.prior_scale)
 
     def new_game(self):
         return gym.make('{}'.format(self.args.env_name))
