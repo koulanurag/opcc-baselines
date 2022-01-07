@@ -12,7 +12,7 @@ from core.utils import init_logger
 
 def train_dynamics(config: BaseConfig):
     # create logger
-    init_logger(config.dynamics_logs_dir_path, 'train_dynamics')
+    init_logger(config.logs_dir_path, 'train_dynamics')
 
     # create network
     network = config.get_uniform_dynamics_network().to(config.device)
@@ -48,8 +48,6 @@ def train_dynamics(config: BaseConfig):
         if ((update_i % config.args.dynamics_checkpoint_interval == 0)
                 or update_i == (config.args.update_count - 1)):
             torch.save({'network': network.state_dict(),
-                        'update': update_i},
-                       config.dynamics_checkpoint_path)
+                        'update': update_i}, config.checkpoint_path)
             if config.args.use_wandb:
-                wandb.save(glob_str=config.dynamics_checkpoint_path,
-                           policy='now')
+                wandb.save(glob_str=config.checkpoint_path, policy='now')

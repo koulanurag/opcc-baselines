@@ -5,8 +5,6 @@ from collections import defaultdict
 import gym
 import numpy as np
 
-# from core.neural_env import NeuralEnv
-#
 from core.networks import EnsembleDynamicsNetwork
 
 ACTION_SCALE = defaultdict(lambda: defaultdict(lambda: 1))
@@ -16,24 +14,20 @@ class BaseConfig(object):
     def __init__(self, args, dynamics_args):
         self.__args = args
 
-        # hyper-parameters hash
-        dynamics_args_str = [str(vars(args)[hp.dest])
-                             for hp in sorted(dynamics_args._group_actions,
-                                              key=lambda x: x.dest)]
-        dyn_hp_hash = hashlib.sha224(
-            bytes(''.join(sorted(dynamics_args_str)), 'ascii')).hexdigest()
+        # dynamics hyper-parameters hash
+        sorted_dyn_args = sorted(dynamics_args._group_actions,
+                                 key=lambda x: x.dest)
+        dyn_args_str = [str(vars(args)[hp.dest]) for hp in sorted_dyn_args]
+        dyn_hp_hash = hashlib.sha224(bytes(''.join(dyn_args_str), 'ascii')).hexdigest()
 
         base_path = os.path.join(args.result_dir, args.env_name,
                                  args.dataset_name)
-        self.dynamics_exp_dir_path = os.path.join(base_path,
-                                                  'dynamic:{}'.format(
-                                                      dyn_hp_hash))
-        self.dynamics_exp_dir_path = os.path.abspath(
-            self.dynamics_exp_dir_path)
+        self.exp_dir_path = os.path.join(base_path, dyn_hp_hash)
+        self.exp_dir_path = os.path.abspath(self.exp_dir_path)
 
         # create directories
-        os.makedirs(self.dynamics_exp_dir_path, exist_ok=True)
-        os.makedirs(self.dynamics_logs_dir_path, exist_ok=True)
+        os.makedirs(self.exp_dir_path, exist_ok=True)
+        os.makedirs(self.logs_dir_path, exist_ok=True)
 
         # store env attributes
         env = self.new_game()
@@ -67,15 +61,6 @@ class BaseConfig(object):
         envs = SyncVectorEnv([self.new_game for _ in range(num_envs)])
         return envs
 
-    def neural_env(self, init_observations, ensemble_dynamics_network,
-                   num_envs=1):
-        envs = self.new_vectorized_game(num_envs)
-        return NeuralEnv(self.__args.env_name, init_observations,
-                         ensemble_dynamics_network,
-                         envs.action_space, self.max_episode_steps,
-                         num_env=num_envs,
-                         device=self.__args.device)
-
     @property
     def args(self):
         return self.__args
@@ -85,17 +70,17 @@ class BaseConfig(object):
         return ACTION_SCALE[self.__args.case][self.__args.env_name]
 
     @property
-    def dynamics_network_path(self):
-        return os.path.join(self.dynamics_exp_dir_path, 'dynamics_network.p')
+    def network_path(self):
+        return os.path.join(self.exp_dir_path, 'dynamics_network.p')
 
     @property
-    def dynamics_checkpoint_path(self):
-        return os.path.join(self.dynamics_exp_dir_path,
+    def checkpoint_path(self):
+        return os.path.join(self.exp_dir_path,
                             'dynamics_checkpoint.p')
 
     @property
-    def dynamics_logs_dir_path(self):
-        return os.path.join(self.dynamics_exp_dir_path, 'dynamics_logs')
+    def logs_dir_path(self):
+        return os.path.join(self.exp_dir_path, 'dynamics_logs')
 
     @property
     def device(self):
