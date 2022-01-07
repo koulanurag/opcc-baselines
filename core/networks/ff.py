@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from .base import Base
-import numpy as np
 from .utils import weights_init
 
 
@@ -13,16 +12,20 @@ class FFDynamicsNetwork(Base, nn.Module):
 
     def __init__(self, obs_size, action_size, hidden_size, deterministic=True,
                  constant_prior=False, activation_function='relu', lr=1e-3):
-        Base.__init__(self, obs_size=obs_size,
+        Base.__init__(self,
+                      obs_size=obs_size,
                       action_size=action_size,
                       deterministic=deterministic,
                       constant_prior=constant_prior)
         nn.Module.__init__(self)
+
         self.__prior_prefix = 'prior_'
-        prefixes = [] if constant_prior else [self.__prior_prefix]
+        prefixes = ['']
+        if self.constant_prior:
+            prefixes.append(self.__prior_prefix)
 
         self.act_fn = getattr(F, activation_function)
-        for prefix in [''] + prefixes:
+        for prefix in prefixes:
             setattr(self, prefix + 'fc1',
                     nn.Linear(self.obs_size + self.action_size, hidden_size))
             setattr(self, prefix + 'fc2',

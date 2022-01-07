@@ -1,5 +1,4 @@
 from .ff import FFDynamicsNetwork
-from .constant_prior import ConstantPriorFFDynamicsNetwork
 from collections import defaultdict
 import torch.nn as nn
 
@@ -14,10 +13,10 @@ class NstepDynamicsNetwork(nn.Module):
             if dynamics_type == 'feed-forward':
                 net = FFDynamicsNetwork(obs_size,
                                         (action_size * (i + 1)),
-                                        hidden_size,
-                                        constant_prior,
-                                        deterministic,
-                                        'silu')
+                                        hidden_size=hidden_size,
+                                        constant_prior=constant_prior,
+                                        deterministic=deterministic,
+                                        activation_function='silu')
             else:
                 raise ValueError()
             setattr(self, 'step_{}'.format(i + 1), net)
