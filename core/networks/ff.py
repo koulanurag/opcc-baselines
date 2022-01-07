@@ -129,7 +129,9 @@ class FFDynamicsNetwork(Base, nn.Module):
         mu, log_var = self.forward(obs, action)
         assert len(mu.shape) == len(log_var.shape) == 2
 
-        if not self.deterministic:
+        if self.deterministic:
+            loss = nn.MSELoss()(mu, target)
+        else:
             inv_var = torch.exp(-log_var)
             mse_loss = torch.mean(torch.mean(torch.pow(mu - target, 2)
                                              * inv_var, dim=-1), dim=-1)
@@ -137,8 +139,6 @@ class FFDynamicsNetwork(Base, nn.Module):
             loss = mse_loss + var_loss
             loss += 0.01 * torch.sum(self.max_logvar)
             loss -= 0.01 * torch.sum(self.min_logvar)
-        else:
-            loss = nn.MSELoss()(mu, target)
 
         # update
         self.optimizer.zero_grad()
