@@ -31,7 +31,7 @@ class AgDynamicsNetwork(FFDynamicsNetwork):
             if self._prior_prefix in name:
                 param.requires_grad = False
 
-        max_logvar = (torch.ones((1, 1).float() / 2))
+        max_logvar = (torch.ones((1, 1)).float() / 2)
         min_logvar = (-torch.ones((1, 1)).float() * 10)
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
