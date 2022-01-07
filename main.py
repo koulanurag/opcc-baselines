@@ -128,6 +128,9 @@ def get_args(arg_str: str = None):
                                help='number of dynamics for ensemble ')
     dynamics_args.add_argument('--constant-prior', action='store_true',
                                help='adds a constant prior to each model ')
+    dynamics_args.add_argument('--constant-prior-scale', type=float,
+                               default=1,
+                               help='scale for constant priors')
 
     # queries evaluation args
     queries_args = parser.add_argument_group('args for evaluating queries')
