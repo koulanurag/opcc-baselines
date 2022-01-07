@@ -52,3 +52,14 @@ class NstepDynamicsNetwork:
     @property
     def n_step(self):
         return self.__n_step
+
+    def to(self, device, *args, **kwargs):
+        for i in range(self.n_step):
+            step_i = 'step_{}'.format(i + 1)
+            setattr(self, step_i,
+                    getattr(self, step_i).to(device, *args, **kwargs))
+        return self
+
+    def train(self, *args, **kwargs):
+        for i in range(self.n_step):
+            getattr(self, 'step_{}'.format(i + 1)).train(*args, **kwargs)
