@@ -18,10 +18,10 @@ class FFDynamicsNetwork(Base, nn.Module):
                       obs_size=obs_size,
                       action_size=action_size,
                       deterministic=deterministic,
-                      constant_prior=constant_prior)
+                      constant_prior=constant_prior,
+                      prior_scale=prior_scale)
         nn.Module.__init__(self)
 
-        self._prior_scale = prior_scale
         self._prior_prefix = 'prior_'
         prefixes = ['']
         if self.constant_prior:
