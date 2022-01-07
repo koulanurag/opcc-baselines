@@ -3,7 +3,6 @@ import os
 from collections import defaultdict
 
 import gym
-import numpy as np
 
 from core.networks import EnsembleDynamicsNetwork
 
@@ -14,7 +13,7 @@ class BaseConfig(object):
     def __init__(self, args, dynamics_args):
         self.__args = args
 
-        # dynamics hyper-parameters hash
+        # dynamics hyper-parameters hash for experiment saving
         sorted_dyn_args = sorted(dynamics_args._group_actions,
                                  key=lambda x: x.dest)
         dyn_args_str = [str(vars(args)[hp.dest]) for hp in sorted_dyn_args]
@@ -37,10 +36,6 @@ class BaseConfig(object):
         self.action_space_high = env.action_space.high
         self.action_size = env.action_space.shape[0]
         self.max_episode_steps = env.unwrapped.spec.max_episode_steps
-
-    def sample_uniform_action(self, n=1):
-        return np.random.uniform(self.action_space_low, self.action_space_high,
-                                 size=(n, len(self.action_space_low))).tolist()
 
     def get_uniform_dynamics_network(self):
         return EnsembleDynamicsNetwork(num_ensemble=self.args.num_ensemble,
