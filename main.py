@@ -75,7 +75,7 @@ def get_args(arg_str: str = None):
                                help='n-step predictor for model ')
     dynamics_args.add_argument('--dynamics-seed', default=0, type=int,
                                help='seed for training dynamics ')
-    dynamics_args.add_argument('--dynamics-log-interval', default=1, type=int,
+    dynamics_args.add_argument('--log-interval', default=1, type=int,
                                help='epoch interval to test dynamics ')
     dynamics_args.add_argument('--dynamics-test-interval', default=1, type=int,
                                help='epoch interval to test dynamics ')
