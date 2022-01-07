@@ -19,10 +19,10 @@ class FFDynamicsNetwork(Base, nn.Module):
                       constant_prior=constant_prior)
         nn.Module.__init__(self)
 
-        self.__prior_prefix = 'prior_'
+        self._prior_prefix = 'prior_'
         prefixes = ['']
         if self.constant_prior:
-            prefixes.append(self.__prior_prefix)
+            prefixes.append(self._prior_prefix)
 
         self.act_fn = getattr(F, activation_function)
         for prefix in prefixes:
@@ -32,11 +32,11 @@ class FFDynamicsNetwork(Base, nn.Module):
                     nn.Linear(hidden_size, hidden_size))
             setattr(self, prefix + 'fc3',
                     nn.Linear(hidden_size, hidden_size))
-            setattr(self, prefix + 'fc4'.format(prefix),
+            setattr(self, prefix + 'fc4',
                     nn.Linear(hidden_size, 2 * obs_size + 2))
 
         for name, param in self.named_parameters():
-            if self.__prior_prefix in name:
+            if self._prior_prefix in name:
                 param.requires_grad = False
 
         max_logvar = (torch.ones((1, obs_size + 1)).float() / 2)
@@ -46,7 +46,7 @@ class FFDynamicsNetwork(Base, nn.Module):
         self.optimizer = torch.optim.Adam([param
                                            for name, param in
                                            self.named_parameters()
-                                           if self.__prior_prefix not in name],
+                                           if self._prior_prefix not in name],
                                           lr=lr)
         self.apply(weights_init)
 
@@ -134,9 +134,8 @@ class FFDynamicsNetwork(Base, nn.Module):
             loss = nn.MSELoss()(mu, target)
         else:
             inv_var = torch.exp(-log_var)
-            mse_loss = torch.mean(torch.mean(torch.pow(mu - target, 2)
-                                             * inv_var, dim=-1), dim=-1)
-            var_loss = torch.mean(torch.mean(log_var, dim=-1), dim=-1)
+            mse_loss = torch.mean(torch.pow(mu - target, 2) * inv_var)
+            var_loss = torch.mean(log_var)
             loss = mse_loss + var_loss
             loss += 0.01 * torch.sum(self.max_logvar)
             loss -= 0.01 * torch.sum(self.min_logvar)
