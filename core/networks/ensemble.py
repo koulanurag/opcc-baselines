@@ -51,3 +51,10 @@ class EnsembleDynamicsNetwork:
     def train(self, *args, **kwargs):
         for i in range(self.num_ensemble):
             getattr(self, 'ensemble_{}'.format(i)).train(*args, **kwargs)
+
+    def state_dict(self, *args, **kwargs):
+        _dict = {}
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            _dict[name] = getattr(self, name).state_dict(*args, **kwargs)
+        return _dict
