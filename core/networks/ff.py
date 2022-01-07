@@ -123,8 +123,9 @@ class FFDynamicsNetwork(Base, nn.Module):
         obs = obs.contiguous()
         action = action.contiguous()
         next_obs = next_obs.contiguous()
+        delta_obs = next_obs.detach() - obs.detach()
         reward = reward.contiguous()
-        target = torch.cat((next_obs, reward.unsqueeze(1)), dim=1)
+        target = torch.cat((delta_obs, reward.unsqueeze(1)), dim=1)
 
         mu, log_var = self.forward(obs, action)
         assert len(mu.shape) == len(log_var.shape) == 2
