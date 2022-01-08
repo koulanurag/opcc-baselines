@@ -67,8 +67,6 @@ def get_args(arg_str: str = None):
     dynamics_args.add_argument('--deterministic', action='store_true',
                                help='if True, we use deterministic model '
                                     'otherwise stochastic')
-    dynamics_args.add_argument('--train-terminal', action='store_true',
-                               help='enables training of terminal flag')
     dynamics_args.add_argument('--use-dropout', action='store_true',
                                help='uses dropout within models')
     dynamics_args.add_argument('--n-step-model', default=1, type=int,
@@ -76,30 +74,21 @@ def get_args(arg_str: str = None):
     dynamics_args.add_argument('--dynamics-seed', default=0, type=int,
                                help='seed for training dynamics ')
     dynamics_args.add_argument('--log-interval', default=1, type=int,
-                               help='epoch interval to test dynamics ')
-    dynamics_args.add_argument('--dynamics-test-interval', default=1, type=int,
-                               help='epoch interval to test dynamics ')
+                               help='log interval for training dynamics')
     dynamics_args.add_argument('--dynamics-checkpoint-interval', type=int,
-                               default=1, help='epoch interval to save'
+                               default=1, help='update interval to save'
                                                ' dynamics checkpoint ')
     dynamics_args.add_argument('--hidden-size', type=int, default=200,
                                help='hidden size for Linear Layers ')
-    dynamics_args.add_argument('--dynamics-test-episodes', type=int, default=5,
-                               help='no. of test episodes for evaluating '
-                                    'dynamics with base policies')
 
     dynamics_args.add_argument('--update-count', type=int, default=100,
                                help='epochs for training ')
-    dynamics_args.add_argument('--batch-count', type=int, default=20,
-                               help='batches per epochs ')
     dynamics_args.add_argument('--dynamics-batch-size', type=int, default=256,
                                help='batch size for Dynamics Learning ')
     dynamics_args.add_argument('--reward-loss-coeff', type=int, default=1,
                                help='reward loss coefficient for training ')
     dynamics_args.add_argument('--observation-loss-coeff', type=int, default=1,
                                help='obs. loss coefficient for training ')
-    dynamics_args.add_argument('--terminal-loss-coeff', type=int, default=1,
-                               help='terminal loss coefficient for training')
     dynamics_args.add_argument('--grad-clip-norm', type=float, default=5.0,
                                help='gradient clipping norm')
     dynamics_args.add_argument('--dynamics-lr', type=float, default=1e-3,
@@ -115,15 +104,6 @@ def get_args(arg_str: str = None):
                                help='normalizes the rewards')
     dynamics_args.add_argument('--normalize-action', action='store_true',
                                help='normalizes the action space ')
-    dynamics_args.add_argument('--add-observation-noise', action='store_true',
-                               help='adds noise to observation')
-    dynamics_args.add_argument('--add-reward-noise', action='store_true',
-                               help='adds noise to rewards')
-    dynamics_args.add_argument('--observation-noise-std', type=float,
-                               default=0.01,
-                               help='std for adding noise to observation')
-    dynamics_args.add_argument('--reward-noise-std', type=float, default=0.01,
-                               help='std for adding noise to reward ')
     dynamics_args.add_argument('--num-ensemble', default=1, type=int,
                                help='number of dynamics for ensemble ')
     dynamics_args.add_argument('--constant-prior', action='store_true',
