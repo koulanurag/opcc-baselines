@@ -7,10 +7,10 @@ import cque
 import numpy as np
 import torch
 import wandb
-
 from core.config import BaseConfig
 from core.train import train_dynamics
 from core.utils import evaluate_queries
+from wandb.plot import scatter
 
 
 def _seed(seed=0, cuda=False):
@@ -127,7 +127,7 @@ def get_args(arg_str: str = None):
                                    'for evaluation  ')
     queries_args.add_argument('--query-eval-runs', type=int, default=1,
                               help='run count for each query ')
-    queries_args.add_argument('--query-eval-step-batch-size', type=int,
+    queries_args.add_argument('--query-eval-batch-size', type=int,
                               default=128,
                               help='batch size for query evaluation ')
 
@@ -210,18 +210,49 @@ if __name__ == '__main__':
 
         # dynamics setup
         assert os.path.exists(config.checkpoint_path), \
-            'dynamics network checkpoint not found: {}'.format(config.checkpoint_path)
+            'dynamics network not found: {}'.format(config.checkpoint_path)
         network = config.get_uniform_dynamics_network()
         state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
-        print('state check-point epoch:{}'.format(state_dict['epoch_i']))
-        if args.use_wandb:
-            wandb.run.summary["model-check-point"] = state_dict['epoch_i']
+        print('state check-point update:{}'.format(state_dict['update_i']))
         network.load_state_dict(state_dict['network'])
         network.eval()
         network = network.to(config.args.device)
 
         # query-evaluation
         queries = cque.get_queries(args.env_name)
-        evaluate_queries(queries, network)
+        predicted_estimates_df = evaluate_queries(queries,
+                                                  network,
+                                                  runs=args.query_eval_runs,
+                                                  batch_size=args.query_eval_batch_size,
+                                                  device=args.device,
+                                                  env_name=args.env_name,
+                                                  ensemble_mixture=args.query_eval_ensemble_mixture)
+
+        # store results:
+        predicted_estimates_df.to_pickle(config.evaluate_queries_path)
+        if args.use_wandb:
+            wandb.run.summary["model-check-point"] = state_dict['epoch_i']
+
+            table = wandb.Table(dataframe=predicted_estimates_df)
+            wandb.log({'query-data': table})
+            wandb.log({"mean/q-value-comparison-a":
+                       scatter(table, x="pred_a_mean", y="target_a",
+                               title="q-value-comparison-a")})
+            wandb.log({"mean/q-value-comparison-b":
+                       scatter(table, x="pred_b_mean", y="target_b",
+                               title="q-value-comparison-b")})
+            wandb.log({"iqm/q-value-comparison-a":
+                       scatter(table, x="pred_a_iqm", y="target_a",
+                               title="q-value-comparison-a")})
+            wandb.log({"iqm/q-value-comparison-b":
+                       scatter(table, x="pred_b_iqm", y="target_b",
+                               title="q-value-comparison-b")})
+            wandb.log({"median/q-value-comparison-a":
+                       scatter(table, x="pred_a_median", y="target_a",
+                               title="q-value-comparison-a")})
+            wandb.log({"median/q-value-comparison-b":
+                       scatter(table, x="pred_b_median", y="target_b",
+                               title="q-value-comparison-b")})
+
     else:
         raise NotImplementedError()

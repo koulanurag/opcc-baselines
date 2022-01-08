@@ -69,6 +69,17 @@ class BaseConfig(object):
         return os.path.join(self.exp_dir_path, 'dynamics_network.p')
 
     @property
+    def evaluate_queries_path(self, args, queries_args):
+        # hyper-parameters hash for experiment saving
+        sorted_args = sorted(queries_args._group_actions,
+                             key=lambda x: x.dest)
+        query_args_str = [str(vars(args)[hp.dest]) for hp in sorted_args]
+        query_args_hash = hashlib.sha224(
+            bytes(''.join(query_args_str), 'ascii')).hexdigest()
+        return os.path.join(self.exp_dir_path,
+                            query_args_hash, 'evaluate_queries.pkl')
+
+    @property
     def checkpoint_path(self):
         return os.path.join(self.exp_dir_path,
                             'dynamics_checkpoint.p')

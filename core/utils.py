@@ -25,6 +25,7 @@ def init_logger(base_path: str, name: str):
 
 def evaluate_queries(queries, network, runs, batch_size, device, env_name,
                      ensemble_mixture=False):
+    predict_df = pd.DataFrame()
     for (policy_a_id, policy_b_id), query_batch in queries.items():
 
         policy_a, _ = policybazaar.get_policy(*policy_a_id)
@@ -38,14 +39,9 @@ def evaluate_queries(queries, network, runs, batch_size, device, env_name,
         obss_b = query_batch['obs_b']
         actions_b = query_batch['action_b']
         horizons = query_batch['horizon']
-        targets = query_batch['target']
-        returns_a = query_batch['info']['returns_a']
-        returns_b = query_batch['info']['returns_b']
 
         predict_a = np.zeros((len(obss_a), network.num_ensemble))
         predict_b = np.zeros((len(obss_b), network.num_ensemble))
-        query_df = pd.DataFrame()
-
         with torch.no_grad():
             for horizon in np.unique(horizons):
                 _filter = horizons == horizon
@@ -74,11 +70,17 @@ def evaluate_queries(queries, network, runs, batch_size, device, env_name,
         for idx in range(len(obss_a)):
             _stat = {
                 # ground-truth info
-                **{'id': (policy_a_id[1], policy_b_id[1]),
+                **{'query_key': (policy_a_id, policy_b_id),
+                   'query_idx': idx,
+                   'policy_ids': (policy_a_id[1], policy_b_id[1]),
+                   'obs_a': obss_a[idx],
+                   'action_a': actions_a[idx],
+                   'obs_b': obss_b[idx],
+                   'action_b': actions_b[idx],
                    'horizon': horizon[idx],
-                   'target': targets[idx],
-                   'returns_a': returns_a[idx],
-                   'returns_b': returns_b[idx]},
+                   'target': query_batch['target'][idx],
+                   'returns_a': query_batch['info']['returns_a'][idx],
+                   'returns_b': query_batch['info']['returns_b'][idx]},
 
                 # query-a predictions
                 **{'pred_a_{}'.format(e_i): predict_a[idx][e_i]
@@ -98,7 +100,8 @@ def evaluate_queries(queries, network, runs, batch_size, device, env_name,
                    'pred_b_max': predict_b[idx].max(),
                    'pred_b_min': predict_b[idx].min()},
             }
-            query_df = query_df.append(_stat, ignore_index=True)
+            predict_df = predict_df.append(_stat, ignore_index=True)
+    return predict_df
 
 
 def mc_return(network, init_obs, init_action, policy, horizon: int,
