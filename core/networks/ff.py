@@ -18,10 +18,10 @@ class FFDynamicsNetwork(Base, nn.Module):
                       obs_size=obs_size,
                       action_size=action_size,
                       deterministic=deterministic,
-                      constant_prior=constant_prior)
+                      constant_prior=constant_prior,
+                      prior_scale=prior_scale)
         nn.Module.__init__(self)
 
-        self._prior_scale = prior_scale
         self._prior_prefix = 'prior_'
         prefixes = ['']
         if self.constant_prior:
@@ -54,8 +54,8 @@ class FFDynamicsNetwork(Base, nn.Module):
         self.apply(weights_init)
 
     def to(self, device, **kwargs):
-        self.max_logvar = self.max_logvar.to(device)
-        self.min_logvar = self.min_logvar.to(device)
+        self.max_logvar.data = self.max_logvar.to(device)
+        self.min_logvar.data = self.min_logvar.to(device)
         return super(FFDynamicsNetwork, self).to(device, **kwargs)
 
     def __prior_logits(self, obs, action):
