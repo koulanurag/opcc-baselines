@@ -145,7 +145,7 @@ def get_args(arg_str: str = None):
     # Process arguments
     args = parser.parse_args(arg_str.split(" ") if arg_str else None)
     args.device = ('cuda' if (not args.no_cuda) and
-                             torch.cuda.is_available() else 'cpu')
+                   torch.cuda.is_available() else 'cpu')
 
     return args, job_args, path_args, wandb_args, \
            dynamics_args, queries_args, uncertain_args
@@ -186,7 +186,7 @@ if __name__ == '__main__':
                     setattr(args, key, remote_config[key])
                     setattr(dynamics_args, key, remote_config[key])
 
-            # get model
+            # download dynamics
             config = BaseConfig(args, dynamics_args)
             root, name = config.checkpoint_path
             os.makedirs(root, exist_ok=True)
@@ -195,7 +195,7 @@ if __name__ == '__main__':
         else:
             config = BaseConfig(args, dynamics_args)
 
-        # setup logger
+        # setup experiment tracking
         if args.use_wandb:
             wandb.init(job_type=args.job,
                        dir=args.wandb_dir,

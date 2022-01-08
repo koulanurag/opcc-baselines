@@ -81,8 +81,7 @@ class BaseConfig(object):
 
     @property
     def checkpoint_path(self):
-        return os.path.join(self.exp_dir_path,
-                            'dynamics_checkpoint.p')
+        return os.path.join(self.exp_dir_path, 'dynamics_checkpoint.p')
 
     @property
     def logs_dir_path(self):
