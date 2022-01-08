@@ -135,9 +135,13 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
             # step
             batch_norm_action = network.transform_action(step_action)
             batch_norm_obs = norm_obs[batch_idx:batch_end_idx].to(device)
-            batch_next_obs, batch_reward = network.step(batch_norm_obs,
-                                                        batch_norm_action)
-            batch_done = NeuralEnv.is_terminal(env_name, batch_next_obs)
+            batch_next_obs, batch_reward, batch_done = network.step(batch_norm_obs, batch_norm_action)
+            batch_done = is_terminal(env_name, batch_next_obs)
+
+            # move to cpu for saving cuda memory
+            batch_next_obs = batch_next_obs.cpu()
+            batch_reward = batch_reward.cpu()
+            batch_done = batch_done.cpu()
 
             if batch_idx == 0:
                 next_obs = batch_next_obs
