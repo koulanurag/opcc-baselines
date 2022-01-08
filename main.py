@@ -185,9 +185,10 @@ if __name__ == '__main__':
                        dir=args.wandb_dir,
                        project=args.wandb_project_name + '-' + args.job,
                        settings=wandb.Settings(start_method="thread"))
-            wandb.config.update(job_args)
-            wandb.config.update(dynamics_args, allow_val_change=True)
-
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in job_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in dynamics_args._group_actions})
         train_dynamics(config)
 
     elif args.job == 'evaluate-queries':
