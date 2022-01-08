@@ -3,12 +3,14 @@ import os
 import random
 from pathlib import Path
 
+import cque
 import numpy as np
 import torch
 import wandb
 
 from core.config import BaseConfig
 from core.train import train_dynamics
+from core.utils import evaluate_queries
 
 
 def _seed(seed=0, cuda=False):
@@ -172,9 +174,54 @@ if __name__ == '__main__':
         train_dynamics(config)
 
     elif args.job == 'evaluate-queries':
+        # set-up config
         if args.restore_dynamics_from_wandb:
+            # get remote config from wandb
             assert args.wandb_dynamics_run_id is not None, \
                 'w&b id cannot be {}'.format(args.wandb_dynamics_run_id)
+            remote_config = wandb.Api().run(args.wandb_dynamics_run_id).config
+            assert args.env_name == remote_config['env_name']
+            for key in remote_config:
+                if key in dynamics_args:
+                    setattr(args, key, remote_config[key])
+                    setattr(dynamics_args, key, remote_config[key])
 
+            # get model
+            config = BaseConfig(args, dynamics_args)
+            root, name = config.checkpoint_path
+            os.makedirs(root, exist_ok=True)
+            wandb.restore(name=name, run_path=args.wandb_dynamics_run_id,
+                          replace=True, root=root)
+        else:
+            config = BaseConfig(args, dynamics_args)
+
+        # setup logger
+        if args.use_wandb:
+            wandb.init(job_type=args.job,
+                       dir=args.wandb_dir,
+                       project=args.wandb_project_name + '-' + args.job,
+                       settings=wandb.Settings(start_method="thread"))
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in job_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in dynamics_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in queries_args._group_actions})
+
+        # dynamics setup
+        assert os.path.exists(config.checkpoint_path), \
+            'dynamics network checkpoint not found: {}'.format(config.checkpoint_path)
+        network = config.get_uniform_dynamics_network()
+        state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
+        print('state check-point epoch:{}'.format(state_dict['epoch_i']))
+        if args.use_wandb:
+            wandb.run.summary["model-check-point"] = state_dict['epoch_i']
+        network.load_state_dict(state_dict['network'])
+        network.eval()
+        network = network.to(config.args.device)
+
+        # query-evaluation
+        queries = cque.get_queries(args.env_name)
+        evaluate_queries(queries, network)
     else:
         raise NotImplementedError()

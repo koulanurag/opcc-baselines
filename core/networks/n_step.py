@@ -74,6 +74,10 @@ class NstepDynamicsNetwork:
         for i in range(self.n_step):
             getattr(self, 'step_{}'.format(i + 1)).train(*args, **kwargs)
 
+    def eval(self, *args, **kwargs):
+        for i in range(self.n_step):
+            getattr(self, 'step_{}'.format(i + 1)).eval(*args, **kwargs)
+
     def state_dict(self, *args, **kwargs):
         _dict = {}
         for i in range(self.n_step):
