@@ -107,6 +107,8 @@ def evaluate_queries(queries, network, runs, batch_size, device, env_name,
 def mc_return(network, init_obs, init_action, policy, horizon: int,
               device='cpu', runs: int = 1, ensemble_mixture: bool = False,
               step_batch_size: int = 128, env_name=None):
+
+    assert len(init_obs) == len(init_action), 'batch size not same'
     batch_size, obs_size = init_obs.shape
     _, action_size = init_action.shape
     init_action = torch.FloatTensor(init_action)
@@ -160,3 +162,42 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
     returns = returns.reshape((batch_size, runs, network.num_ensemble))
     returns = returns.mean(1)
     return returns
+
+
+def is_terminal(env_name, obs):
+    """
+    Reference:
+    - Page 12: https://arxiv.org/pdf/1604.06778.pdf
+    - MBPO original paper: https://github.com/jannerm/mbpo/tree/ac694ff9f1ebb789cc5b3f164d9d67f93ed8f129/mbpo/static
+    - MBPO Pytorch paper: https://openreview.net/pdf?id=rkezvT9f6r
+    """
+
+    if env_name == "Hopper-v2":
+        assert len(obs.shape) == 3
+
+        height = obs[:, :, 0]
+        angle = obs[:, :, 1]
+        not_done = (np.isfinite(obs).all(axis=-1)
+                    * np.abs(obs[:, :, 1:] < 100).all(axis=-1)
+                    * (height > .7)
+                    * (np.abs(angle) < .2))
+        not_done = not_done.bool()
+        done = ~not_done
+        return done
+    elif env_name == "Walker2d-v2":
+        assert len(obs.shape) == 3
+
+        height = obs[:, :, 0]
+        angle = obs[:, :, 1]
+        not_done = ((height > 0.8)
+                    * (height < 2.0)
+                    * (angle > -1.0)
+                    * (angle < 1.0))
+        not_done = not_done.bool()
+        done = ~not_done
+        return done
+    elif 'maze' in env_name or env_name == 'HalfCheetah-v2':
+        done = torch.zeros(obs.shape[:2]).bool()
+        return done
+    else:
+        raise NotImplementedError
