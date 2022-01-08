@@ -32,8 +32,6 @@ def get_args(arg_str: str = None):
     job_args = parser.add_argument_group('job args')
     job_args.add_argument('--env-name', default='HalfCheetah-v2',
                           help='name of the environment')
-    job_args.add_argument('--dataset-name', default='random',
-                          help='name of the dataset')
     job_args.add_argument('--no-cuda', action='store_true',
                           help='no cuda usage')
     job_args.add_argument('--job', required=True,
@@ -43,6 +41,8 @@ def get_args(arg_str: str = None):
                                    'uncertainty-test-plot'])
     # paths
     path_args = parser.add_argument_group('paths setup')
+    job_args.add_argument('--dataset-name', default='random',
+                          help='name of the dataset')
     path_args.add_argument('--d4rl-dataset-dir', type=Path,
                            default=Path(os.path.join('~/.d4rl', 'datasets')),
                            help="directory to store d4rl datasets")
