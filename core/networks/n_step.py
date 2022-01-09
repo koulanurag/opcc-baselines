@@ -1,7 +1,6 @@
 from collections import defaultdict
 
 import torch
-
 from .autoregressive import AgDynamicsNetwork
 from .ff import FFDynamicsNetwork
 
@@ -46,7 +45,7 @@ class NstepDynamicsNetwork:
     def reset(self, max_steps=1, batch_size=1):
         self._max_steps = max_steps
         self._batch_size = batch_size
-        self._dones = np.array([False for _ in range(batch_size)])
+        self._dones = torch.Tensor([False for _ in range(batch_size)]).bool()
         self._step_count = 0
         self._action_history = None
         self._init_obs = None
@@ -65,12 +64,16 @@ class NstepDynamicsNetwork:
         step_i = (self._step_count % self.n_step) + 1
         dynamics = getattr(self, 'step_{}'.format(step_i))
         next_obs, reward, done = dynamics.step(self._init_obs,
-                                               self.action_history)
+                                               self._action_history)
         self._step_count += 1
-        reward[self._dones or (self._step_count % self.n_step == 0)] = 0.
-        self._dones = self._dones or done
+        if ((self._step_count % self.n_step) != 0 and
+                self._step_count != self._max_steps):
+            reward = torch.zeros_like(reward)
+        else:
+            reward[self._dones] = 0.
 
-        return next_obs, reward, torch.Tensor(self._dones).to(next_obs.device)
+        self._dones = torch.logical_or(self._dones, done)
+        return next_obs, reward, self._dones
 
     def update(self, replay_buffer, batch_count, batch_size):
         loss = defaultdict(lambda: defaultdict(lambda: 0))

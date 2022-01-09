@@ -26,16 +26,19 @@ class EnsembleDynamicsNetwork:
             getattr(self, 'ensemble_{}'.format(i)).reset(max_steps, batch_size)
 
     def step(self, obs, action):
+        assert len(obs.shape) == 3
+        assert len(action.shape) == 3
+
         next_obs, reward, done = None, None, None
 
         for i in range(self.num_ensemble):
             _name = 'ensemble_{}'.format(i)
             dynamics = getattr(self, _name)
 
-            _next_obs, _reward, _done = dynamics.step(obs, action)
+            _next_obs, _reward, _done = dynamics.step(obs[:, i], action[:, i])
             _next_obs = _next_obs.unsqueeze(1)
-            _reward = _next_obs.unsqueeze(1)
-            _done = _next_obs.unsqueeze(1)
+            _reward = _reward.unsqueeze(1)
+            _done = _done.unsqueeze(1)
 
             if i == 0:
                 next_obs, reward, done = _next_obs, _reward, _done

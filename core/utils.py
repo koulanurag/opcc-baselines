@@ -108,15 +108,17 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
     assert len(init_obs) == len(init_action), 'batch size not same'
     batch_size, obs_size = init_obs.shape
     _, action_size = init_action.shape
-    init_action = torch.FloatTensor(init_action)
 
     # repeat for ensemble size
     init_obs = torch.FloatTensor(init_obs)
     init_obs = init_obs.unsqueeze(1).repeat(1, network.num_ensemble, 1)
 
+    init_action = torch.FloatTensor(init_action)
+    init_action = init_action.unsqueeze(1).repeat(1, network.num_ensemble, 1)
+
     # repeat for runs
     init_obs = init_obs.repeat(runs, 1, 1)
-    init_action = init_action.repeat(runs, 1)
+    init_action = init_action.repeat(runs, 1, 1)
 
     returns = np.zeros((batch_size * runs, network.num_ensemble))
     for batch_idx in range(0, returns.shape[0], step_batch_size):
@@ -130,10 +132,10 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
         # step
         for step in range(horizon):
             step_obs, reward, done = network.step(step_obs, step_action)
-            step_action = policy.actor(step_obs)
+            step_action = policy(step_obs)
 
             # move to cpu for saving cuda memory
-            reward = reward.cpu().numpy()
+            reward = reward.cpu().detach().numpy()
             returns[batch_idx:batch_end_idx][~done] += reward[~done]
 
         if device == 'cuda':

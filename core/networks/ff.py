@@ -117,7 +117,7 @@ class FFDynamicsNetwork(Base, nn.Module):
             reward = torch.normal(reward_mu, torch.sqrt(var))
 
         # Todo: denormalize obs
-        return next_obs, reward, is_terminal(self.env_name, next_obs)
+        return next_obs, reward, is_terminal(self.env_name, next_obs.cpu().detach())
 
     def update(self, obs, action, next_obs, reward):
         assert len(obs.shape) == 2
