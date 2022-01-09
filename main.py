@@ -225,7 +225,6 @@ if __name__ == '__main__':
                                                   runs=args.query_eval_runs,
                                                   batch_size=args.query_eval_batch_size,
                                                   device=args.device,
-                                                  env_name=args.env_name,
                                                   ensemble_mixture=args.query_eval_ensemble_mixture)
 
         # store results:

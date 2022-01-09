@@ -23,7 +23,7 @@ def init_logger(base_path: str, name: str):
     logger.setLevel(logging.DEBUG)
 
 
-def evaluate_queries(queries, network, runs, batch_size, device, env_name,
+def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                      ensemble_mixture=False):
     predict_df = pd.DataFrame()
     for (policy_a_id, policy_b_id), query_batch in queries.items():
