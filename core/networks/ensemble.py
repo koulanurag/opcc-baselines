@@ -1,11 +1,12 @@
-from .n_step import NstepDynamicsNetwork
 import torch
+
+from .n_step import NstepDynamicsNetwork
 
 
 class EnsembleDynamicsNetwork:
-    def __init__(self, num_ensemble, obs_size, action_size, hidden_size,
-                 n_step, dynamics_type, deterministic=True,
-                 constant_prior=False, prior_scale=1.0):
+    def __init__(self, env_name, dataset_name, num_ensemble, obs_size,
+                 action_size, hidden_size, n_step, dynamics_type,
+                 deterministic=True, constant_prior=False, prior_scale=1.0):
         super().__init__()
         self.__obs_size = obs_size
         self.__action_size = action_size
@@ -14,8 +15,9 @@ class EnsembleDynamicsNetwork:
         self.__constant_prior = constant_prior
 
         for i in range(num_ensemble):
-            _net = NstepDynamicsNetwork(obs_size, action_size, hidden_size,
-                                        n_step, dynamics_type, deterministic,
+            _net = NstepDynamicsNetwork(env_name, dataset_name, obs_size,
+                                        action_size, hidden_size, n_step,
+                                        dynamics_type, deterministic,
                                         constant_prior, prior_scale)
             setattr(self, 'ensemble_{}'.format(i), _net)
 

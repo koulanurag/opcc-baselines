@@ -11,11 +11,12 @@ class AgDynamicsNetwork(FFDynamicsNetwork):
     Autoregressive Dynamics Network
     """
 
-    def __init__(self, obs_size, action_size, hidden_size, deterministic=True,
-                 constant_prior=False, activation_function='relu', lr=1e-3,
-                 prior_scale=1):
+    def __init__(self, env_name, dataset_name, obs_size, action_size,
+                 hidden_size, deterministic=True, constant_prior=False,
+                 activation_function='relu', lr=1e-3, prior_scale=1):
         # obs = obs + next_obs + action + one_hot for obs and reward
-        super().__init__(3 * obs_size, action_size + 1, hidden_size,
+        super().__init__(env_name, dataset_name, 3 * obs_size, action_size + 1,
+                         hidden_size,
                          deterministic=deterministic,
                          constant_prior=constant_prior,
                          activation_function=activation_function,

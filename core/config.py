@@ -38,7 +38,9 @@ class BaseConfig(object):
         self.max_episode_steps = env.unwrapped.spec.max_episode_steps
 
     def get_uniform_dynamics_network(self):
-        return EnsembleDynamicsNetwork(num_ensemble=self.args.num_ensemble,
+        return EnsembleDynamicsNetwork(env_name=self.args.env_name,
+                                       dataset_name=self.args.dataset_name,
+                                       num_ensemble=self.args.num_ensemble,
                                        obs_size=self.observation_size,
                                        action_size=self.action_size,
                                        hidden_size=self.args.hidden_size,

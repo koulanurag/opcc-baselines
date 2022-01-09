@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from .base import Base
-from .utils import weights_init
+from .utils import weights_init, is_terminal
 
 
 class FFDynamicsNetwork(Base, nn.Module):
@@ -11,10 +11,12 @@ class FFDynamicsNetwork(Base, nn.Module):
     Feed-forward dynamics network
     """
 
-    def __init__(self, obs_size, action_size, hidden_size, deterministic=True,
-                 constant_prior=False, activation_function='relu', lr=1e-3,
-                 prior_scale=1):
+    def __init__(self, env_name, dataset_name, obs_size, action_size,
+                 hidden_size, deterministic=True, constant_prior=False,
+                 activation_function='relu', lr=1e-3, prior_scale=1):
         Base.__init__(self,
+                      env_name=env_name,
+                      dataset_name=dataset_name,
                       obs_size=obs_size,
                       action_size=action_size,
                       deterministic=deterministic,
@@ -53,10 +55,10 @@ class FFDynamicsNetwork(Base, nn.Module):
                                           lr=lr)
         self.apply(weights_init)
 
-    def to(self, device, **kwargs):
+    def to(self, device, *args, **kwargs):
         self.max_logvar.data = self.max_logvar.to(device)
         self.min_logvar.data = self.min_logvar.to(device)
-        return super(FFDynamicsNetwork, self).to(device, **kwargs)
+        return super(FFDynamicsNetwork, self).to(device, *args, **kwargs)
 
     def __prior_logits(self, obs, action):
         assert len(obs.shape) == 2
@@ -99,6 +101,7 @@ class FFDynamicsNetwork(Base, nn.Module):
         return mu, log_var
 
     def step(self, obs, action):
+        # Todo: normalize obs. and action
         mu, log_var = self.forward(obs, action)
         next_obs_mu, reward_mu = mu[:, :-1], mu[:, -1]
         next_obs_log_var, reward_log_var = log_var[:, :-1], log_var[:, -1]
@@ -113,8 +116,8 @@ class FFDynamicsNetwork(Base, nn.Module):
             var = torch.exp(reward_log_var)
             reward = torch.normal(reward_mu, torch.sqrt(var))
 
-        return next_obs, next_obs_mu, next_obs_log_var, reward, \
-               reward_mu, reward_log_var
+        # Todo: denormalize obs
+        return next_obs, reward, is_terminal(self.env_name, next_obs)
 
     def update(self, obs, action, next_obs, reward):
         assert len(obs.shape) == 2

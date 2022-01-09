@@ -1,19 +1,21 @@
 from collections import defaultdict
 
-from .ff import FFDynamicsNetwork
-from .autoregressive import AgDynamicsNetwork
 import torch
+
+from .autoregressive import AgDynamicsNetwork
+from .ff import FFDynamicsNetwork
 
 
 class NstepDynamicsNetwork:
-    def __init__(self, obs_size, action_size, hidden_size, n_step=1,
+    def __init__(self, env_name, dataset_name, obs_size, action_size, hidden_size, n_step=1,
                  dynamics_type='feed-forward', deterministic=True,
                  constant_prior=False, prior_scale=1.0):
         super().__init__()
         self.__n_step = n_step
         for i in range(n_step):
             if dynamics_type == 'feed-forward':
-                net = FFDynamicsNetwork(obs_size,
+                net = FFDynamicsNetwork(env_name, dataset_name,
+                                        obs_size,
                                         (action_size * (i + 1)),
                                         hidden_size=hidden_size,
                                         constant_prior=constant_prior,
@@ -22,7 +24,8 @@ class NstepDynamicsNetwork:
                                         prior_scale=prior_scale)
 
             elif dynamics_type == 'autoregressive':
-                net = AgDynamicsNetwork(obs_size,
+                net = AgDynamicsNetwork(env_name, dataset_name,
+                                        obs_size,
                                         (action_size * (i + 1)),
                                         hidden_size=hidden_size,
                                         constant_prior=constant_prior,
@@ -43,7 +46,7 @@ class NstepDynamicsNetwork:
     def reset(self, max_steps=1, batch_size=1):
         self._max_steps = max_steps
         self._batch_size = batch_size
-        self._dones = [False for _ in range(batch_size)]
+        self._dones = np.array([False for _ in range(batch_size)])
         self._step_count = 0
         self._action_history = None
         self._init_obs = None
@@ -52,20 +55,22 @@ class NstepDynamicsNetwork:
         if self._max_steps is None:
             raise Exception('need to call reset() before step()')
         assert obs.shape[0] == action.shape[0] == self._batch_size
-        if self._step_count % self._max_steps == 0:
+        if self._step_count % self.n_step == 0:
             self._init_obs = obs
-            self.action_history = action
+            self._action_history = action
         else:
-            self.action_history = torch.cat((self.action_history, action),
-                                            dim=1)
+            self._action_history = torch.cat((self._action_history, action),
+                                             dim=1)
 
         step_i = (self._step_count % self.n_step) + 1
         dynamics = getattr(self, 'step_{}'.format(step_i))
         next_obs, reward, done = dynamics.step(self._init_obs,
                                                self.action_history)
         self._step_count += 1
+        reward[self._dones or (self._step_count % self.n_step == 0)] = 0.
+        self._dones = self._dones or done
 
-        return next_obs, reward, done
+        return next_obs, reward, torch.Tensor(self._dones).to(next_obs.device)
 
     def update(self, replay_buffer, batch_count, batch_size):
         loss = defaultdict(lambda: defaultdict(lambda: 0))

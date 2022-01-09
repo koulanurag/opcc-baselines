@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 import torch.nn as nn
 
 
@@ -18,3 +18,42 @@ def weights_init(m):
         input_dim = m.in_features
         truncated_normal_init(m.weight, std=1 / (2 * np.sqrt(input_dim)))
         m.bias.data.fill_(0.0)
+
+
+def is_terminal(env_name, obs):
+    """
+    Reference:
+    - Page 12: https://arxiv.org/pdf/1604.06778.pdf
+    - MBPO original paper: https://github.com/jannerm/mbpo/tree/ac694ff9f1ebb789cc5b3f164d9d67f93ed8f129/mbpo/static
+    - MBPO Pytorch paper: https://openreview.net/pdf?id=rkezvT9f6r
+    """
+
+    if env_name == "Hopper-v2":
+        assert len(obs.shape) == 3
+
+        height = obs[:, :, 0]
+        angle = obs[:, :, 1]
+        not_done = (np.isfinite(obs).all(axis=-1)
+                    * np.abs(obs[:, :, 1:] < 100).all(axis=-1)
+                    * (height > .7)
+                    * (np.abs(angle) < .2))
+        not_done = not_done.bool()
+        done = ~not_done
+        return done
+    elif env_name == "Walker2d-v2":
+        assert len(obs.shape) == 3
+
+        height = obs[:, :, 0]
+        angle = obs[:, :, 1]
+        not_done = ((height > 0.8)
+                    * (height < 2.0)
+                    * (angle > -1.0)
+                    * (angle < 1.0))
+        not_done = not_done.bool()
+        done = ~not_done
+        return done
+    elif 'maze' in env_name or env_name == 'HalfCheetah-v2':
+        done = torch.zeros(obs.shape[:2]).bool()
+        return done
+    else:
+        raise ValueError('{} termination rule not found'.format(env_name))
