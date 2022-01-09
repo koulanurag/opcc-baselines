@@ -32,7 +32,7 @@ def test_mc_return(env_name, dataset_name, n_step, num_ensemble, dynamics_type,
     dataset = cque.get_sequence_dataset(env_name, dataset_name)
     replay_buffer = ReplayBuffer(dataset)
 
-    batch = replay_buffer.sample(n=batch_size, chunk_size=n_step)
+    batch = replay_buffer.sample(n=batch_size, chunk_size=horizon)
     init_obs = batch.obs[:, 0]
     init_action = batch.action[:, 0]
     predicted_estimates = mc_return(network, init_obs, init_action, policy,
