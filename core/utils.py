@@ -106,58 +106,40 @@ def evaluate_queries(queries, network, runs, batch_size, device, env_name,
 
 def mc_return(network, init_obs, init_action, policy, horizon: int,
               device='cpu', runs: int = 1, ensemble_mixture: bool = False,
-              step_batch_size: int = 128, env_name=None):
-
+              step_batch_size: int = 128):
     assert len(init_obs) == len(init_action), 'batch size not same'
     batch_size, obs_size = init_obs.shape
     _, action_size = init_action.shape
     init_action = torch.FloatTensor(init_action)
 
-    step_obs = torch.FloatTensor(init_obs)
-    step_obs = step_obs.unsqueeze(1).repeat(1, network.num_ensemble, 1)
-    step_obs = step_obs.repeat(runs, 1, 1)
-    norm_obs = network.transform_obs(step_obs)
+    # repeat for ensemble size
+    init_obs = torch.FloatTensor(init_obs)
+    init_obs = init_obs.unsqueeze(1).repeat(1, network.num_ensemble, 1)
 
     # repeat for runs
+    init_obs = init_obs.repeat(runs, 1, 1)
     init_action = init_action.repeat(runs, 1)
 
     returns = np.zeros((batch_size * runs, network.num_ensemble))
-    for step in range(horizon):
-        next_obs, reward, dones = None, None, None
-        for batch_idx in range(0, returns.shape[0], step_batch_size):
-            batch_end_idx = batch_idx + step_batch_size
+    for batch_idx in range(0, returns.shape[0], step_batch_size):
+        batch_end_idx = batch_idx + step_batch_size
 
-            # step-action
-            if step == 0:
-                step_action = init_action[batch_idx:batch_end_idx].to(device)
-            else:
-                _obs = step_obs[batch_idx:batch_end_idx].to(device)
-                step_action = policy.actor(_obs)
+        # reset
+        step_obs = init_obs[batch_idx:batch_end_idx].to(device)
+        step_action = init_action[batch_idx:batch_end_idx].to(device)
+        network.reset(max_steps=horizon, batch_size=len(step_obs))
 
-            # step
-            batch_norm_action = network.transform_action(step_action)
-            batch_norm_obs = norm_obs[batch_idx:batch_end_idx].to(device)
-            batch_next_obs, batch_reward, batch_done = network.step(batch_norm_obs, batch_norm_action)
-            batch_done = is_terminal(env_name, batch_next_obs)
+        # step
+        for step in range(horizon):
+            step_obs, reward, done = network.step(step_obs, step_action)
+            step_action = policy.actor(step_obs)
 
             # move to cpu for saving cuda memory
-            batch_next_obs = batch_next_obs.cpu()
-            batch_reward = batch_reward.cpu()
-            batch_done = batch_done.cpu()
+            reward = reward.cpu().numpy()
+            returns[batch_idx:batch_end_idx][~done] += reward[~done]
 
-            if batch_idx == 0:
-                next_obs = batch_next_obs
-                reward = batch_reward
-                done = batch_done
-            else:
-                next_obs = torch.cat((next_obs, batch_next_obs), dim=0)
-                reward = torch.cat((reward, batch_reward), dim=0)
-                done = torch.cat((done, batch_done), dim=0)
-
-        returns[~done] += reward[~done]
         if device == 'cuda':
             torch.cuda.empty_cache()
-        step_obs = next_obs
 
     returns = returns.reshape((batch_size, runs, network.num_ensemble))
     returns = returns.mean(1)
@@ -200,4 +182,4 @@ def is_terminal(env_name, obs):
         done = torch.zeros(obs.shape[:2]).bool()
         return done
     else:
-        raise NotImplementedError
+        raise ValueError('{} termination rule not found'.format(env_name))

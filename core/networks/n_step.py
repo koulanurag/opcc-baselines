@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from .ff import FFDynamicsNetwork
 from .autoregressive import AgDynamicsNetwork
+import torch
 
 
 class NstepDynamicsNetwork:
@@ -31,6 +32,40 @@ class NstepDynamicsNetwork:
             else:
                 raise ValueError()
             setattr(self, 'step_{}'.format(i + 1), net)
+
+        self._max_steps = None
+        self._action_history = None
+        self._init_obs = None
+        self._step_count = None
+        self._batch_size = None
+        self._dones = None
+
+    def reset(self, max_steps=1, batch_size=1):
+        self._max_steps = max_steps
+        self._batch_size = batch_size
+        self._dones = [False for _ in range(batch_size)]
+        self._step_count = 0
+        self._action_history = None
+        self._init_obs = None
+
+    def step(self, obs, action):
+        if self._max_steps is None:
+            raise Exception('need to call reset() before step()')
+        assert obs.shape[0] == action.shape[0] == self._batch_size
+        if self._step_count % self._max_steps == 0:
+            self._init_obs = obs
+            self.action_history = action
+        else:
+            self.action_history = torch.cat((self.action_history, action),
+                                            dim=1)
+
+        step_i = (self._step_count % self.n_step) + 1
+        dynamics = getattr(self, 'step_{}'.format(step_i))
+        next_obs, reward, done = dynamics.step(self._init_obs,
+                                               self.action_history)
+        self._step_count += 1
+
+        return next_obs, reward, done
 
     def update(self, replay_buffer, batch_count, batch_size):
         loss = defaultdict(lambda: defaultdict(lambda: 0))

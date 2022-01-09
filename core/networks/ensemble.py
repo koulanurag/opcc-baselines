@@ -1,4 +1,5 @@
 from .n_step import NstepDynamicsNetwork
+import torch
 
 
 class EnsembleDynamicsNetwork:
@@ -17,6 +18,31 @@ class EnsembleDynamicsNetwork:
                                         n_step, dynamics_type, deterministic,
                                         constant_prior, prior_scale)
             setattr(self, 'ensemble_{}'.format(i), _net)
+
+    def reset(self, max_steps=1, batch_size=1):
+        for i in range(self.num_ensemble):
+            getattr(self, 'ensemble_{}'.format(i)).reset(max_steps, batch_size)
+
+    def step(self, obs, action):
+        next_obs, reward, done = None, None, None
+
+        for i in range(self.num_ensemble):
+            _name = 'ensemble_{}'.format(i)
+            dynamics = getattr(self, _name)
+
+            _next_obs, _reward, _done = dynamics.step(obs, action)
+            _next_obs = _next_obs.unsqueeze(1)
+            _reward = _next_obs.unsqueeze(1)
+            _done = _next_obs.unsqueeze(1)
+
+            if i == 0:
+                next_obs, reward, done = _next_obs, _reward, _done
+            else:
+                next_obs = torch.cat((next_obs, _next_obs), dim=1)
+                reward = torch.cat((reward, _reward), dim=1)
+                done = torch.cat((done, _done), dim=1)
+
+        return next_obs, reward, done
 
     def update(self, replay_buffer, batch_count: int, batch_size: int):
 

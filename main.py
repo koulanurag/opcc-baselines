@@ -254,5 +254,7 @@ if __name__ == '__main__':
                        scatter(table, x="pred_b_median", y="target_b",
                                title="q-value-comparison-b")})
 
+    elif args.job == 'uncertainty-test':
+        pass
     else:
         raise NotImplementedError()
