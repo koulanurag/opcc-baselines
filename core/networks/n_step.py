@@ -7,9 +7,9 @@ from .ff import FFDynamicsNetwork
 
 
 class NstepDynamicsNetwork:
-    def __init__(self, env_name, dataset_name, obs_size, action_size, hidden_size, n_step=1,
-                 dynamics_type='feed-forward', deterministic=True,
-                 constant_prior=False, prior_scale=1.0):
+    def __init__(self, env_name, dataset_name, obs_size, action_size,
+                 hidden_size, n_step=1, dynamics_type='feed-forward',
+                 deterministic=True, constant_prior=False, prior_scale=1.0):
         super().__init__()
         self.__n_step = n_step
         for i in range(n_step):
@@ -37,8 +37,8 @@ class NstepDynamicsNetwork:
             setattr(self, 'step_{}'.format(i + 1), net)
 
         self._max_steps = None
-        self._action_history = None
-        self._init_obs = None
+        self._action_hist = None  # maintains n-step actions
+        self._init_obs = None  # maintains initial observation
         self._step_count = None
         self._batch_size = None
         self._dones = None
@@ -48,31 +48,31 @@ class NstepDynamicsNetwork:
         self._batch_size = batch_size
         self._dones = torch.Tensor([False for _ in range(batch_size)]).bool()
         self._step_count = 0
-        self._action_history = None
+        self._action_hist = None
         self._init_obs = None
 
     def step(self, obs, action):
         if self._max_steps is None:
             raise Exception('need to call reset() before step()')
         assert obs.shape[0] == action.shape[0] == self._batch_size
+
+        # reset observation after every n-steps
         if self._step_count % self.n_step == 0:
             self._init_obs = obs
-            self._action_history = action
+            self._action_hist = action
         else:
-            self._action_history = torch.cat((self._action_history, action),
-                                             dim=1)
+            self._action_hist = torch.cat((self._action_hist, action), dim=1)
 
+        # step
         step_i = (self._step_count % self.n_step) + 1
         dynamics = getattr(self, 'step_{}'.format(step_i))
-        next_obs, reward, done = dynamics.step(self._init_obs,
-                                               self._action_history)
+        next_obs, reward, done = dynamics.step(self._init_obs, self._action_hist)
         self._step_count += 1
         if ((self._step_count % self.n_step) != 0 and
                 self._step_count != self._max_steps):
             reward = torch.zeros_like(reward)
         else:
-            reward[self._dones] = 0.
-
+            reward[self._dones] = 0.  # if terminal has passed, reward is 0.
         self._dones = torch.logical_or(self._dones, done)
         return next_obs, reward, self._dones
 
@@ -92,12 +92,18 @@ class NstepDynamicsNetwork:
                 next_obs = batch.obs[:, i + 1][dones]
                 reward = batch.reward[:, :i + 1][dones].sum(dim=1).unsqueeze(-1)
 
-                _loss = dynamics.update(init_obs[dones], act, next_obs, reward)
-                for k, v in _loss.items():
-                    loss[_name][k] += v
+                obs = init_obs[dones]
+                if len(obs) > 0:
+                    _loss = dynamics.update(init_obs[dones], act, next_obs,
+                                            reward)
+                    for k, v in _loss.items():
+                        loss[_name][k] += v
 
-                dones = torch.logical_or((dones, batch.terminal[:, i],
-                                          batch.timeout[:, i]))
+                    dones = torch.logical_or((dones,
+                                              batch.terminal[:, i],
+                                              batch.timeout[:, i]))
+                else:
+                    break
 
         # mean with batch count
         for k in loss:
@@ -129,8 +135,9 @@ class NstepDynamicsNetwork:
         _dict = {}
         for i in range(self.n_step):
             name = 'step_{}'.format(i + 1)
-            _dict[name]['network'] = getattr(self, name).state_dict(*args, **kwargs)
-            _dict[name]['optimizer'] = getattr(self, name).optimizer.state_dict(*args, **kwargs)
+            dynamics = getattr(self, name)
+            _dict[name]['network'] = dynamics.state_dict(*args, **kwargs)
+            _dict[name]['optimizer'] = dynamics.optimizer.state_dict(*args, **kwargs)
         return _dict
 
     def load_state_dict(self, state_dict):
