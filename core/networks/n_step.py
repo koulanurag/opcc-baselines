@@ -86,13 +86,12 @@ class NstepDynamicsNetwork:
                 dynamics = getattr(self, _name)
 
                 obs = batch.obs[:, i]
-                action = batch.action[:, :i + 1]
-                action = action.view(action.shape[0],
-                                     action.shape[1] * action.shape[2])
+                act = batch.action[:, :i + 1]
+                act = act.view(act.shape[0], act.shape[1] * act.shape[2])
                 next_obs = batch.obs[:, i + 1]
                 reward = batch.reward[:, i]
 
-                _loss = dynamics.update(obs, action, next_obs, reward)
+                _loss = dynamics.update(obs, act, next_obs, reward)
                 for k, v in _loss.items():
                     loss[_name][k] += v
 
