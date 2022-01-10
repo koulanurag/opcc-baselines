@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 import torch
+
 from .autoregressive import AgDynamicsNetwork
 from .ff import FFDynamicsNetwork
 
@@ -125,5 +126,12 @@ class NstepDynamicsNetwork:
         _dict = {}
         for i in range(self.n_step):
             name = 'step_{}'.format(i + 1)
-            _dict[name] = getattr(self, name).state_dict(*args, **kwargs)
+            _dict[name]['network'] = getattr(self, name).state_dict(*args, **kwargs)
+            _dict[name]['optimizer'] = getattr(self, name).optimizer.state_dict(*args, **kwargs)
         return _dict
+
+    def load_state_dict(self, state_dict):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).load_state_dict(state_dict[name]['network'])
+            getattr(self, name).optimizer.load_state_dict(state_dict[name]['optimizer'])

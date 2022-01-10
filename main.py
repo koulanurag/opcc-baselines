@@ -214,7 +214,7 @@ if __name__ == '__main__':
         network = config.get_uniform_dynamics_network()
         state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
         print('state check-point update:{}'.format(state_dict['update_i']))
-        network.load_state_dict(state_dict['network'])
+        network.load_state_dict(state_dict)
         network.eval()
         network = network.to(config.args.device)
 

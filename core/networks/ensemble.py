@@ -93,3 +93,8 @@ class EnsembleDynamicsNetwork:
             name = 'ensemble_{}'.format(i)
             _dict[name] = getattr(self, name).state_dict(*args, **kwargs)
         return _dict
+
+    def load_state_dict(self, state_dict):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).load_state_dict(state_dict[name])
