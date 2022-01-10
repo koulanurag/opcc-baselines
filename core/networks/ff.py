@@ -103,35 +103,41 @@ class FFDynamicsNetwork(Base, nn.Module):
     def step(self, obs, action):
         # Todo: normalize obs. and action
         mu, log_var = self.forward(obs, action)
-        next_obs_mu, reward_mu = mu[:, :-1], mu[:, -1]
+        delta_next_obs_mu, reward_mu = mu[:, :-1], mu[:, -1]
         next_obs_log_var, reward_log_var = log_var[:, :-1], log_var[:, -1]
 
         if self.deterministic:
-            next_obs = next_obs_mu
+            delta_next_obs = delta_next_obs_mu
             reward = reward_mu
         else:
             var = torch.exp(next_obs_log_var)
-            next_obs = torch.normal(next_obs_mu, torch.sqrt(var))
+            delta_next_obs = torch.normal(delta_next_obs_mu, torch.sqrt(var))
 
             var = torch.exp(reward_log_var)
             reward = torch.normal(reward_mu, torch.sqrt(var))
 
+        next_obs = obs.detach() + delta_next_obs
+
         # Todo: denormalize obs
-        return next_obs, reward, is_terminal(self.env_name, next_obs.cpu().detach())
+        next_obs = self.clip_obs(next_obs)
+        reward = self.clip_reward(reward)
+        done = is_terminal(self.env_name, next_obs.cpu().detach())
+        return next_obs, reward, done
 
     def update(self, obs, action, next_obs, reward):
         assert len(obs.shape) == 2
         assert len(action.shape) == 2
-        assert len(reward.shape) == 1
-        assert (len(obs) == len(action) == len(reward)), \
-            'batch size is not same'
+        assert len(next_obs.shape) == 2
+        assert len(reward.shape) == 2
+        assert ((len(obs) == len(action) == len(next_obs) == len(reward)),
+                'batch size is not same')
 
         obs = obs.contiguous()
         action = action.contiguous()
         next_obs = next_obs.contiguous()
         delta_obs = next_obs.detach() - obs.detach()
         reward = reward.contiguous()
-        target = torch.cat((delta_obs, reward.unsqueeze(1)), dim=1)
+        target = torch.cat((delta_obs, reward), dim=1)
 
         mu, log_var = self.forward(obs, action)
         assert len(mu.shape) == len(log_var.shape) == 2

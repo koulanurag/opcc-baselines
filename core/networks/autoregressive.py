@@ -118,38 +118,45 @@ class AgDynamicsNetwork(Base, nn.Module):
 
             # sample next obs ith dimension
             if self.deterministic:
-                next_obs[:, obs_i] = mu_i.detach()
+                delta_next_obs = mu_i.detach()
             else:
                 var = torch.exp(log_var_i).detach()
-                next_obs[:, obs_i] = torch.normal(mu_i.detach(),
-                                                  torch.sqrt(var))
+                delta_next_obs = torch.normal(mu_i.detach(), torch.sqrt(var))
+            next_obs[:, obs_i] = delta_next_obs + obs[:, obs_i]
+
+            # clip
+            if obs_i < self.obs_size:
+                next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i])
+            else:
+                next_obs[:, obs_i] = self.clip_reward(next_obs[:, obs_i])
+
         reward = next_obs[:, -1]
         next_obs = next_obs[:, :-1]
         return next_obs, reward, mu, log_var
 
     def step(self, obs, action):
         # Todo: normalize obs. and action
-        next_obs, reward, _, _ = self.forward(obs, action)
-
-        # Todo: denormalize obs
-        return next_obs, reward, is_terminal(self.env_name,
-                                             next_obs.cpu().detach())
+        next_obs, reward, mu, log_var = self.forward(obs, action)
+        # Todo: de-normalize obs. and action
+        done = is_terminal(self.env_name, next_obs.cpu().detach())
+        return next_obs, reward, done
 
     def update(self, obs, action, next_obs, reward):
         assert len(obs.shape) == 2
         assert len(action.shape) == 2
-        assert len(reward.shape) == 1
-        assert (len(obs) == len(action) == len(reward)), \
-            'batch size is not same'
+        assert len(next_obs.shape) == 2
+        assert len(reward.shape) == 2
+        assert ((len(obs) == len(action) == len(next_obs) == len(reward)),
+                'batch size is not same')
 
         obs = obs.contiguous()
         action = action.contiguous()
         next_obs = next_obs.contiguous()
         delta_obs = next_obs.detach() - obs.detach()
         reward = reward.contiguous()
-        target = torch.cat((delta_obs, reward.unsqueeze(1)), dim=1)
+        target = torch.cat((delta_obs, reward), dim=1)
 
-        _, _, mu, log_var = self.forward(obs, action)
+        mu, log_var = self.forward(obs, action)
         assert len(mu.shape) == len(log_var.shape) == 2
 
         if self.deterministic:

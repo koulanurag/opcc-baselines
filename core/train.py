@@ -26,6 +26,13 @@ def train_dynamics(config: BaseConfig):
         _dataset = random.choices(dataset, k=len(dataset))
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
+    # set data bounds in network
+    # Todo: get bounds
+    if config.args.clip_obs:
+        network.set_obs_bound(obs_min, obs_max)
+    if config.args.clip_reward:
+        network.set_reward_bound(reward_min, reward_max)
+
     # train
     for update_i in range(0, config.args.update_count,
                           config.args.log_interval):

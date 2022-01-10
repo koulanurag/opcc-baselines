@@ -156,6 +156,16 @@ class NstepDynamicsNetwork:
             dynamics.load_state_dict(state_dict[name]['network'])
             dynamics.optimizer.load_state_dict(state_dict[name]['optimizer'])
 
+    def set_obs_bound(self, obs_min, obs_max):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).set_obs_bound(obs_min, obs_max)
+
+    def set_reward_bound(self, reward_min, reward_max):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).set_rward_bound(reward_min, reward_max)
+
     @property
     def n_step(self):
         return self.__n_step

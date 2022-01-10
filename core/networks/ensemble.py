@@ -102,3 +102,13 @@ class EnsembleDynamicsNetwork:
         for i in range(self.num_ensemble):
             name = 'ensemble_{}'.format(i)
             getattr(self, name).load_state_dict(state_dict[name])
+
+    def set_obs_bound(self, obs_min, obs_max):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).set_obs_bound(obs_min, obs_max)
+
+    def set_reward_bound(self, reward_min, reward_max):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).set_rward_bound(reward_min, reward_max)
