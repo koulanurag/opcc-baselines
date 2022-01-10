@@ -17,7 +17,8 @@ class BaseConfig(object):
         sorted_dyn_args = sorted(dynamics_args._group_actions,
                                  key=lambda x: x.dest)
         dyn_args_str = [str(vars(args)[hp.dest]) for hp in sorted_dyn_args]
-        dyn_hp_hash = hashlib.sha224(bytes(''.join(dyn_args_str), 'ascii')).hexdigest()
+        dyn_args_byte = bytes(''.join(dyn_args_str), 'ascii')
+        dyn_hp_hash = hashlib.sha224(dyn_args_byte).hexdigest()
 
         base_path = os.path.join(args.result_dir, args.env_name,
                                  args.dataset_name)
@@ -76,10 +77,10 @@ class BaseConfig(object):
         sorted_args = sorted(queries_args._group_actions,
                              key=lambda x: x.dest)
         query_args_str = [str(vars(args)[hp.dest]) for hp in sorted_args]
-        query_args_hash = hashlib.sha224(
-            bytes(''.join(query_args_str), 'ascii')).hexdigest()
-        return os.path.join(self.exp_dir_path,
-                            query_args_hash, 'evaluate_queries.pkl')
+        query_args_byte = bytes(''.join(query_args_str), 'ascii')
+        query_args_hash = hashlib.sha224(query_args_byte).hexdigest()
+        return os.path.join(self.exp_dir_path, query_args_hash,
+                            'evaluate_queries.pkl')
 
     @property
     def checkpoint_path(self):
@@ -91,4 +92,4 @@ class BaseConfig(object):
 
     @property
     def device(self):
-        return self.__args.device
+        return self.args.device

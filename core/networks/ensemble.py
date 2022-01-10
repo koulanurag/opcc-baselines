@@ -15,10 +15,16 @@ class EnsembleDynamicsNetwork:
         self.__constant_prior = constant_prior
 
         for i in range(num_ensemble):
-            _net = NstepDynamicsNetwork(env_name, dataset_name, obs_size,
-                                        action_size, hidden_size, n_step,
-                                        dynamics_type, deterministic,
-                                        constant_prior, prior_scale)
+            _net = NstepDynamicsNetwork(env_name=env_name,
+                                        dataset_name=dataset_name,
+                                        obs_size=obs_size,
+                                        action_size=action_size,
+                                        hidden_size=hidden_size,
+                                        n_step=n_step,
+                                        deterministic=deterministic,
+                                        dynamics_type=dynamics_type,
+                                        constant_prior=constant_prior,
+                                        prior_scale=prior_scale)
             setattr(self, 'ensemble_{}'.format(i), _net)
 
     def reset(self, max_steps=1, batch_size=1):
@@ -26,7 +32,7 @@ class EnsembleDynamicsNetwork:
             getattr(self, 'ensemble_{}'.format(i)).reset(max_steps, batch_size)
 
     def step(self, obs, action):
-        assert len(obs.shape) == 3
+        assert len(obs.shape) == 3, '(batch , ensemble ,obs. size) required.'
         assert len(action.shape) == 3
 
         next_obs, reward, done = None, None, None
@@ -50,15 +56,13 @@ class EnsembleDynamicsNetwork:
         return next_obs, reward, done
 
     def update(self, replay_buffer, batch_count: int, batch_size: int):
-
-        ensemble_loss = {}
+        loss = {}
         for i in range(self.num_ensemble):
             _name = 'ensemble_{}'.format(i)
             dynamics = getattr(self, _name)
-            ensemble_loss[_name] = dynamics.update(replay_buffer[i],
-                                                   batch_count,
-                                                   batch_size)
-        return ensemble_loss
+            loss[_name] = dynamics.update(replay_buffer[i], batch_count,
+                                          batch_size)
+        return loss
 
     @property
     def num_ensemble(self):

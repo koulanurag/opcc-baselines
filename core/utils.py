@@ -127,7 +127,7 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
         # reset
         step_obs = init_obs[batch_idx:batch_end_idx].to(device)
         step_action = init_action[batch_idx:batch_end_idx].to(device)
-        network.reset(max_steps=horizon, batch_size=len(step_obs))
+        network.reset(horizon=horizon, batch_size=len(step_obs))
 
         # step
         for step in range(horizon):
