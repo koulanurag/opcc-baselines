@@ -81,19 +81,23 @@ class NstepDynamicsNetwork:
         for batch_i in range(batch_count):
             batch = replay_buffer.sample(batch_size, self.n_step)
 
+            init_obs = batch.obs[:, 0]
+            dones = torch.zeros(batch_size).bool()
             for i in range(self.n_step):
                 _name = 'step_{}'.format(i + 1)
                 dynamics = getattr(self, _name)
 
-                obs = batch.obs[:, i]
-                act = batch.action[:, :i + 1]
+                act = batch.action[:, :i + 1][dones]
                 act = act.view(act.shape[0], act.shape[1] * act.shape[2])
-                next_obs = batch.obs[:, i + 1]
-                reward = batch.reward[:, i]
+                next_obs = batch.obs[:, i + 1][dones]
+                reward = batch.reward[:, :i + 1][dones].sum(dim=1).unsqueeze(-1)
 
-                _loss = dynamics.update(obs, act, next_obs, reward)
+                _loss = dynamics.update(init_obs[dones], act, next_obs, reward)
                 for k, v in _loss.items():
                     loss[_name][k] += v
+
+                dones = torch.logical_or((dones, batch.terminal[:, i],
+                                          batch.timeout[:, i]))
 
         # mean with batch count
         for k in loss:
