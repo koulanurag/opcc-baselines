@@ -8,6 +8,7 @@ import wandb
 from core.config import BaseConfig
 from core.replay_buffer import ReplayBuffer
 from core.utils import init_logger
+import numpy as np
 
 
 def train_dynamics(config: BaseConfig):
@@ -15,7 +16,7 @@ def train_dynamics(config: BaseConfig):
     init_logger(config.logs_dir_path, 'train_dynamics')
 
     # create network
-    network = config.get_uniform_dynamics_network().to(config.device)
+    network = config.get_uniform_dynamics_network()
     network.train()
 
     # create replay buffers with bootstrap sampling
@@ -24,16 +25,24 @@ def train_dynamics(config: BaseConfig):
     replay_buffers = {}
     for ensemble_i in range(network.num_ensemble):
         _dataset = random.choices(dataset, k=len(dataset))
+
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
     # set data bounds in network
-    # Todo: get bounds
     if config.args.clip_obs:
+        observations = np.concatenate([x['observations']
+                                       for x in dataset], axis=0)
+        obs_min = observations.min(axis=0)
+        obs_max = observations.max(axis=0)
         network.set_obs_bound(obs_min, obs_max)
     if config.args.clip_reward:
+        rewards = np.concatenate([x['rewards'] for x in dataset], axis=0)
+        reward_min = rewards.min(axis=0)
+        reward_max = rewards.max(axis=0)
         network.set_reward_bound(reward_min, reward_max)
 
     # train
+    network = network.to(config.device)
     for update_i in range(0, config.args.update_count,
                           config.args.log_interval):
         # estimate ensemble loss and update

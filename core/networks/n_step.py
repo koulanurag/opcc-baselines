@@ -87,7 +87,7 @@ class NstepDynamicsNetwork:
         loss = defaultdict(lambda: defaultdict(lambda: 0))
         for batch_i in range(batch_count):
             batch = replay_buffer.sample(batch_size, self.n_step)
-            dones = torch.zeros(batch_size).bool()
+            dones = torch.zeros(batch_size).bool().to(batch.obs.device)
 
             # init-obs is passed to all n-step dynamics
             init_obs = batch.obs[:, 0]
@@ -113,7 +113,7 @@ class NstepDynamicsNetwork:
                         loss[_name][k] += v
 
                     # once done; don't update subsequent n-step dynamics
-                    _dones = torch.logical_or(dones, batch.terminal[:, i]),
+                    _dones = torch.logical_or(dones, batch.terminal[:, i])
                     dones = torch.logical_or(_dones, batch.timeout[:, i])
 
         # mean with batch count
@@ -144,6 +144,7 @@ class NstepDynamicsNetwork:
         for i in range(self.n_step):
             name = 'step_{}'.format(i + 1)
             dynamics = getattr(self, name)
+            _dict[name] = {}
             _dict[name]['network'] = dynamics.state_dict(*args, **kwargs)
             _dict[name]['optimizer'] = dynamics.optimizer.state_dict(*args,
                                                                      **kwargs)
@@ -164,7 +165,7 @@ class NstepDynamicsNetwork:
     def set_reward_bound(self, reward_min, reward_max):
         for i in range(self.n_step):
             name = 'step_{}'.format(i + 1)
-            getattr(self, name).set_rward_bound(reward_min, reward_max)
+            getattr(self, name).set_reward_bound(reward_min, reward_max)
 
     @property
     def n_step(self):

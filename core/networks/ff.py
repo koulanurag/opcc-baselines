@@ -6,7 +6,7 @@ from .base import Base
 from .utils import weights_init, is_terminal
 
 
-class FFDynamicsNetwork(Base, nn.Module):
+class FFDynamicsNetwork(Base):
     """
     Feed-forward dynamics network
     """
@@ -45,11 +45,23 @@ class FFDynamicsNetwork(Base, nn.Module):
                 if self._prior_prefix in name:
                     param.requires_grad = False
 
+        self.apply(weights_init)
+
         max_logvar = (torch.ones((1, obs_size + 1)).float() / 2)
         min_logvar = (-torch.ones((1, obs_size + 1)).float() * 10)
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
-        self.apply(weights_init)
+
+        # default bounds
+        self.__obs_max = torch.ones(obs_size) * torch.inf
+        self.__obs_max = nn.Parameter(self.__obs_max, requires_grad=False)
+        self.__obs_min = torch.ones(obs_size) * -torch.inf
+        self.__obs_min = nn.Parameter(self.__obs_min, requires_grad=False)
+
+        self.__reward_max = torch.ones(1) * torch.inf
+        self.__reward_max = nn.Parameter(self.__reward_max, requires_grad=False)
+        self.__reward_min = torch.ones(1) * -torch.inf
+        self.__reward_min = nn.Parameter(self.__reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
         non_prior_params = [param for name, param in self.named_parameters()
@@ -59,6 +71,12 @@ class FFDynamicsNetwork(Base, nn.Module):
     def to(self, device, *args, **kwargs):
         self.max_logvar.data = self.max_logvar.to(device)
         self.min_logvar.data = self.min_logvar.to(device)
+
+        self.__obs_max.data = self.__obs_max.to(device)
+        self.__obs_min.data = self.__obs_min.to(device)
+        self.__reward_max.data = self.__reward_max.to(device)
+        self.__reward_min.data = self.__reward_min.to(device)
+
         return super(FFDynamicsNetwork, self).to(device, *args, **kwargs)
 
     def __prior_logits(self, obs, action):
@@ -129,8 +147,8 @@ class FFDynamicsNetwork(Base, nn.Module):
         assert len(action.shape) == 2
         assert len(next_obs.shape) == 2
         assert len(reward.shape) == 2
-        assert ((len(obs) == len(action) == len(next_obs) == len(reward)),
-                'batch size is not same')
+        assert len(obs) == len(action) == len(next_obs) == len(reward), \
+            'batch size is not same'
 
         obs = obs.contiguous()
         action = action.contiguous()
@@ -158,3 +176,37 @@ class FFDynamicsNetwork(Base, nn.Module):
         self.optimizer.step()
 
         return {'total': loss.item()}
+
+    @property
+    def obs_min(self):
+        return self.__obs_min
+
+    @property
+    def obs_max(self):
+        return self.__obs_max
+
+    @property
+    def reward_min(self):
+        return self.__reward_min
+
+    @property
+    def reward_max(self):
+        return self.__reward_max
+
+    def set_obs_bound(self, obs_min, obs_max):
+        self.__obs_min = nn.Parameter(torch.tensor(obs_min),
+                                      requires_grad=False)
+        self.__obs_max = nn.Parameter(torch.tensor(obs_max),
+                                      requires_grad=False)
+
+    def set_reward_bound(self, reward_min, reward_max):
+        self.__reward_min = nn.Parameter(torch.tensor(reward_min),
+                                         requires_grad=False)
+        self.__reward_max = nn.Parameter(torch.tensor(reward_max),
+                                         requires_grad=False)
+
+    def clip_obs(self, obs):
+        return torch.clip(obs, min=self.obs_min, max=self.obs_max)
+
+    def clip_reward(self, reward):
+        return torch.clip(reward, min=self.reward_min, max=self.reward_max)

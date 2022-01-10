@@ -111,4 +111,4 @@ class EnsembleDynamicsNetwork:
     def set_reward_bound(self, reward_min, reward_max):
         for i in range(self.num_ensemble):
             name = 'ensemble_{}'.format(i)
-            getattr(self, name).set_rward_bound(reward_min, reward_max)
+            getattr(self, name).set_reward_bound(reward_min, reward_max)
