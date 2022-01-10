@@ -42,20 +42,19 @@ class AgDynamicsNetwork(Base, nn.Module):
             layer = nn.Linear(hidden_size, 2)
             setattr(self, self._prior_prefix + 'fc4', layer)
 
-        for name, param in self.named_parameters():
-            if self._prior_prefix in name:
-                param.requires_grad = False
+            for name, param in self.named_parameters():
+                if self._prior_prefix in name:
+                    param.requires_grad = False
 
         max_logvar = (torch.ones((1, 1)).float() / 2)
         min_logvar = (-torch.ones((1, 1)).float() * 10)
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
-        self.optimizer = torch.optim.Adam([param
-                                           for name, param in
-                                           self.named_parameters()
-                                           if self._prior_prefix not in name],
-                                          lr=lr)
         self.apply(weights_init)
+
+        non_prior_params = [param for name, param in self.named_parameters()
+                            if self._prior_prefix not in name]
+        self.optimizer = torch.optim.Adam(non_prior_params, lr=lr)
 
     def to(self, device, *args, **kwargs):
         self.max_logvar.data = self.max_logvar.to(device)

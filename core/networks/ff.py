@@ -24,36 +24,37 @@ class FFDynamicsNetwork(Base, nn.Module):
                       prior_scale=prior_scale)
         nn.Module.__init__(self)
 
-        self._prior_prefix = 'prior_'
-        prefixes = ['']
-        if self.constant_prior:
-            prefixes.append(self._prior_prefix)
-
         self.act_fn = getattr(F, activation_function)
-        for prefix in prefixes:
-            setattr(self, prefix + 'fc1',
-                    nn.Linear(self.obs_size + self.action_size, hidden_size))
-            setattr(self, prefix + 'fc2',
-                    nn.Linear(hidden_size, hidden_size))
-            setattr(self, prefix + 'fc3',
-                    nn.Linear(hidden_size, hidden_size))
-            setattr(self, prefix + 'fc4',
-                    nn.Linear(hidden_size, 2 * obs_size + 2))
+        self.fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, hidden_size)
+        self.fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
-        for name, param in self.named_parameters():
-            if self._prior_prefix in name:
-                param.requires_grad = False
+        self._prior_prefix = 'prior_'
+        if constant_prior:
+            layer = nn.Linear(self.obs_size + action_size, hidden_size)
+            setattr(self, self._prior_prefix + 'fc1', layer)
+            layer = nn.Linear(hidden_size, hidden_size)
+            setattr(self, self._prior_prefix + 'fc2', layer)
+            layer = nn.Linear(hidden_size, hidden_size)
+            setattr(self, self._prior_prefix + 'fc3', layer)
+            layer = nn.Linear(hidden_size, 2 * obs_size + 2)
+            setattr(self, self._prior_prefix + 'fc4', layer)
+
+            for name, param in self.named_parameters():
+                if self._prior_prefix in name:
+                    param.requires_grad = False
 
         max_logvar = (torch.ones((1, obs_size + 1)).float() / 2)
         min_logvar = (-torch.ones((1, obs_size + 1)).float() * 10)
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
-        self.optimizer = torch.optim.Adam([param
-                                           for name, param in
-                                           self.named_parameters()
-                                           if self._prior_prefix not in name],
-                                          lr=lr)
         self.apply(weights_init)
+
+        # create optimizer with no prior parameters
+        non_prior_params = [param for name, param in self.named_parameters()
+                            if self._prior_prefix not in name]
+        self.optimizer = torch.optim.Adam(non_prior_params, lr=lr)
 
     def to(self, device, *args, **kwargs):
         self.max_logvar.data = self.max_logvar.to(device)
@@ -64,10 +65,11 @@ class FFDynamicsNetwork(Base, nn.Module):
         assert len(obs.shape) == 2
         assert len(action.shape) == 2
 
-        hidden = self.act_fn(self.prior_fc1(torch.cat((obs, action), dim=1)))
-        hidden = self.act_fn(self.prior_fc2(hidden))
-        hidden = self.act_fn(self.prior_fc3(hidden))
-        output = self.prior_fc4(hidden)
+        hidden = torch.cat((obs, action), dim=1)
+        hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc1')(hidden))
+        hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc2')(hidden))
+        hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc3')(hidden))
+        output = getattr(self, self._prior_prefix + 'fc4')(hidden)
 
         mu = output[:, :self.obs_size + 1]
         log_var_logit = output[:, self.obs_size + 1:]
@@ -90,11 +92,9 @@ class FFDynamicsNetwork(Base, nn.Module):
         mu, log_var_logit = self._logits(obs, action)
         if self.constant_prior:
             with torch.no_grad():
-                prior_mu, prior_log_var_logit = self.__prior_logits(obs,
-                                                                    action)
-                mu += self.prior_scale * prior_mu
-                log_var_logit += self.prior_scale * prior_log_var_logit
-
+                _mu, _log_var_logit = self.__prior_logits(obs, action)
+                mu += self.prior_scale * _mu
+                log_var_logit += self.prior_scale * _log_var_logit
         log_var = self.max_logvar - F.softplus(self.max_logvar - log_var_logit)
         log_var = self.min_logvar + F.softplus(log_var - self.min_logvar)
 
