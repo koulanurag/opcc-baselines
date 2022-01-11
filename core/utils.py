@@ -40,30 +40,30 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
         actions_b = query_batch['action_b']
         horizons = query_batch['horizon']
 
-        predict_a = np.zeros((len(obss_a), network.num_ensemble))
-        predict_b = np.zeros((len(obss_b), network.num_ensemble))
+        pred_a = np.zeros((len(obss_a), network.num_ensemble))
+        pred_b = np.zeros((len(obss_b), network.num_ensemble))
         with torch.no_grad():
             for horizon in np.unique(horizons):
                 _filter = horizons == horizon
-                predict_a[_filter, :] = mc_return(network,
-                                                  obss_a[_filter],
-                                                  actions_a[_filter],
-                                                  policy_a,
-                                                  horizon,
-                                                  device,
-                                                  ensemble_mixture,
-                                                  runs,
-                                                  batch_size)
+                pred_a[_filter, :] = mc_return(network=network,
+                                               init_obs=obss_a[_filter],
+                                               init_action=actions_a[_filter],
+                                               policy=policy_a,
+                                               horizon=horizon,
+                                               device=device,
+                                               runs=runs,
+                                               ensemble_mixture=ensemble_mixture,
+                                               step_batch_size=batch_size)
 
-                predict_b[_filter, :] = mc_return(network,
-                                                  obss_b[_filter],
-                                                  actions_b[_filter],
-                                                  policy_b,
-                                                  horizon,
-                                                  device,
-                                                  ensemble_mixture,
-                                                  runs,
-                                                  batch_size)
+                pred_b[_filter, :] = mc_return(network=network,
+                                               init_obs=obss_b[_filter],
+                                               init_action=actions_b[_filter],
+                                               policy=policy_b,
+                                               horizon=horizon,
+                                               device=device,
+                                               runs=runs,
+                                               ensemble_mixture=ensemble_mixture,
+                                               step_batch_size=batch_size)
 
         for idx in range(len(obss_a)):
             _stat = {
@@ -81,22 +81,22 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                    'returns_b': query_batch['info']['returns_b'][idx]},
 
                 # query-a predictions
-                **{'pred_a_{}'.format(e_i): predict_a[idx][e_i]
+                **{'pred_a_{}'.format(e_i): pred_a[idx][e_i]
                    for e_i in range(network.num_ensemble)},
-                **{'pred_a_mean': predict_a[idx].mean(),
-                   'pred_a_iqm': metrics.aggregate_iqm([predict_a[idx]]),
-                   'pred_a_median': np.median(predict_a[idx]),
-                   'pred_a_max': predict_a[idx].max(),
-                   'pred_a_min': predict_a[idx].min()},
+                **{'pred_a_mean': pred_a[idx].mean(),
+                   'pred_a_iqm': metrics.aggregate_iqm([pred_a[idx]]),
+                   'pred_a_median': np.median(pred_a[idx]),
+                   'pred_a_max': pred_a[idx].max(),
+                   'pred_a_min': pred_a[idx].min()},
 
                 # query-b predictions
-                **{'pred_b_{}'.format(e_i): predict_b[idx][e_i]
+                **{'pred_b_{}'.format(e_i): pred_b[idx][e_i]
                    for e_i in range(network.num_ensemble)},
-                **{'pred_b_mean': predict_b[idx].mean(),
-                   'pred_b_median': np.median(predict_b[idx]),
-                   'pred_b_iqm': metrics.aggregate_iqm([predict_b[idx]]),
-                   'pred_b_max': predict_b[idx].max(),
-                   'pred_b_min': predict_b[idx].min()},
+                **{'pred_b_mean': pred_b[idx].mean(),
+                   'pred_b_median': np.median(pred_b[idx]),
+                   'pred_b_iqm': metrics.aggregate_iqm([pred_b[idx]]),
+                   'pred_b_max': pred_b[idx].max(),
+                   'pred_b_min': pred_b[idx].min()},
             }
             predict_df = predict_df.append(_stat, ignore_index=True)
     return predict_df
@@ -112,7 +112,6 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
     # repeat for ensemble size
     init_obs = torch.FloatTensor(init_obs)
     init_obs = init_obs.unsqueeze(1).repeat(1, network.num_ensemble, 1)
-
     init_action = torch.FloatTensor(init_action)
     init_action = init_action.unsqueeze(1).repeat(1, network.num_ensemble, 1)
 

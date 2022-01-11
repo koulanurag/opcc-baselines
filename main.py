@@ -117,19 +117,21 @@ def get_args(arg_str: str = None):
                               help='restore model from wandb run')
     queries_args.add_argument('--wandb-dynamics-run-id', type=str,
                               help='wandb run id if restoring model')
-    queries_args.add_argument('--query-eval-ensemble-mixture',
+    queries_args.add_argument('--ensemble-mixture',
                               action='store_true',
                               help='if enabled, mixes ensemble models '
-                                   'for evaluation  ')
-    queries_args.add_argument('--query-eval-runs', type=int, default=1,
-                              help='run count for each query ')
-    queries_args.add_argument('--query-eval-batch-size', type=int,
+                                   'for query evaluation  ')
+    queries_args.add_argument('--eval-runs', type=int, default=1,
+                              help='run count for each query evaluation')
+    queries_args.add_argument('--eval-batch-size', type=int,
                               default=128,
                               help='batch size for query evaluation ')
     queries_args.add_argument('--clip-obs', action='store_true',
-                              help='clip the observation space with bounds')
+                              help='clip the observation space with bounds '
+                                   'for query evaluation')
     queries_args.add_argument('--clip-reward', action='store_true',
-                              help='clip the reward with dataset bounds ')
+                              help='clip the reward with dataset bounds'
+                                   ' for query evaluation')
 
     # uncertainty-test arguments
     uncertain_args = parser.add_argument_group('args for  uncertainty-test')
@@ -227,19 +229,19 @@ if __name__ == '__main__':
 
         # query-evaluation
         queries = cque.get_queries(args.env_name)
-        predicted_estimates_df = evaluate_queries(queries=queries,
-                                                  network=network,
-                                                  runs=args.query_eval_runs,
-                                                  batch_size=args.query_eval_batch_size,
-                                                  device=args.device,
-                                                  ensemble_mixture=args.query_eval_ensemble_mixture)
+        predicted_df = evaluate_queries(queries=queries,
+                                        network=network,
+                                        runs=args.eval_runs,
+                                        batch_size=args.eval_batch_size,
+                                        device=args.device,
+                                        ensemble_mixture=args.ensemble_mixture)
 
         # store results:
-        predicted_estimates_df.to_pickle(config.evaluate_queries_path)
+        predicted_df.to_pickle(config.evaluate_queries_path)
         if args.use_wandb:
             wandb.run.summary["model-check-point"] = state_dict['epoch_i']
 
-            table = wandb.Table(dataframe=predicted_estimates_df)
+            table = wandb.Table(dataframe=predicted_df)
             wandb.log({'query-data': table})
             wandb.log({"mean/q-value-comparison-a":
                            scatter(table, x="pred_a_mean", y="target_a",
