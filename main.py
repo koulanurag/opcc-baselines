@@ -227,8 +227,8 @@ if __name__ == '__main__':
 
         # query-evaluation
         queries = cque.get_queries(args.env_name)
-        predicted_estimates_df = evaluate_queries(queries,
-                                                  network,
+        predicted_estimates_df = evaluate_queries(queries=queries,
+                                                  network=network,
                                                   runs=args.query_eval_runs,
                                                   batch_size=args.query_eval_batch_size,
                                                   device=args.device,
