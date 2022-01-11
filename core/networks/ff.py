@@ -137,8 +137,11 @@ class FFDynamicsNetwork(Base):
         next_obs = obs.detach() + delta_next_obs
 
         # Todo: denormalize obs
-        next_obs = self.clip_obs(next_obs)
-        reward = self.clip_reward(reward)
+        if self.is_obs_clip_enabled:
+            next_obs = self.clip_obs(next_obs)
+        if self.is_reward_clip_enabled:
+            reward = self.clip_reward(reward)
+
         done = is_terminal(self.env_name, next_obs.cpu().detach())
         return next_obs, reward, done
 

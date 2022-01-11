@@ -27,9 +27,9 @@ class EnsembleDynamicsNetwork:
                                         prior_scale=prior_scale)
             setattr(self, 'ensemble_{}'.format(i), _net)
 
-    def reset(self, max_steps=1, batch_size=1):
+    def reset(self, horizon=1, batch_size=1):
         for i in range(self.num_ensemble):
-            getattr(self, 'ensemble_{}'.format(i)).reset(max_steps, batch_size)
+            getattr(self, 'ensemble_{}'.format(i)).reset(horizon, batch_size)
 
     def step(self, obs, action):
         assert len(obs.shape) == 3, '(batch , ensemble ,obs. size) required.'
@@ -106,9 +106,9 @@ class EnsembleDynamicsNetwork:
     def set_obs_bound(self, obs_min, obs_max):
         for i in range(self.num_ensemble):
             name = 'ensemble_{}'.format(i)
-            getattr(self, name).set_obs_bound(obs_min, obs_max)
+            getattr(self, name).set_obs_bound(obs_min[i], obs_max[i])
 
     def set_reward_bound(self, reward_min, reward_max):
         for i in range(self.num_ensemble):
             name = 'ensemble_{}'.format(i)
-            getattr(self, name).set_reward_bound(reward_min, reward_max)
+            getattr(self, name).set_reward_bound(reward_min[i], reward_max[i])

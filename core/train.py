@@ -23,25 +23,29 @@ def train_dynamics(config: BaseConfig):
     dataset = cque.get_sequence_dataset(config.args.env_name,
                                         config.args.dataset_name)
     replay_buffers = {}
+    obs_min, obs_max = [], []
+    reward_min, reward_max = [], []
     for ensemble_i in range(network.num_ensemble):
         _dataset = random.choices(dataset, k=len(dataset))
-        replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
-    # set data bounds in network
-    if config.args.clip_obs:
+        # get data bounds for clipping during evaluation
         observations = np.concatenate([x['observations']
                                        for x in dataset], axis=0)
-        obs_min = observations.min(axis=0)
-        obs_max = observations.max(axis=0)
-        network.set_obs_bound(obs_min, obs_max)
-    if config.args.clip_reward:
+        obs_min.append(observations.min(axis=0).tolist())
+        obs_max.append(observations.max(axis=0).tolist())
+
         rewards = np.concatenate([x['rewards'] for x in dataset], axis=0)
-        reward_min = rewards.min(axis=0)
-        reward_max = rewards.max(axis=0)
-        network.set_reward_bound(reward_min, reward_max)
+        reward_min.append(rewards.min(axis=0).tolist())
+        reward_max.append(rewards.max(axis=0).tolist())
+
+        replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
+
+    # setup network
+    network.set_obs_bound(obs_min, obs_max)
+    network.set_reward_bound(reward_min, reward_max)
+    network = network.to(config.device)
 
     # train
-    network = network.to(config.device)
     for update_i in range(0, config.args.update_count,
                           config.args.log_interval):
         # estimate ensemble loss and update

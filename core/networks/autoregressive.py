@@ -138,9 +138,11 @@ class AgDynamicsNetwork(Base, nn.Module):
             if obs_i < self.obs_size:
                 # output is the delta observation
                 next_obs[:, obs_i] = output + obs[:, obs_i]
-                next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i], obs_i)
+                if self.is_obs_clip_enabled:
+                    next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i], obs_i)
             else:
-                reward = self.clip_reward(output)
+                if self.is_reward_clip_enabled:
+                    reward = self.clip_reward(output)
 
         return next_obs, reward, mu, log_var
 

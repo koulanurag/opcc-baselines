@@ -96,10 +96,6 @@ def get_args(arg_str: str = None):
     dynamics_args.add_argument('--dynamics-lr', type=float, default=1e-3,
                                help='learning rate for Dynamics')
 
-    dynamics_args.add_argument('--clip-obs', action='store_true',
-                               help='clip the observation space with bounds')
-    dynamics_args.add_argument('--clip-reward', action='store_true',
-                               help='clip the reward with dataset bounds ')
     dynamics_args.add_argument('--normalize-obs', action='store_true',
                                help='normalizes the observation space ')
     dynamics_args.add_argument('--normalize-reward', action='store_true',
@@ -130,6 +126,10 @@ def get_args(arg_str: str = None):
     queries_args.add_argument('--query-eval-batch-size', type=int,
                               default=128,
                               help='batch size for query evaluation ')
+    queries_args.add_argument('--clip-obs', action='store_true',
+                              help='clip the observation space with bounds')
+    queries_args.add_argument('--clip-reward', action='store_true',
+                              help='clip the reward with dataset bounds ')
 
     # uncertainty-test arguments
     uncertain_args = parser.add_argument_group('args for  uncertainty-test')
@@ -215,6 +215,13 @@ if __name__ == '__main__':
         state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
         print('state check-point update:{}'.format(state_dict['update_i']))
         network.load_state_dict(state_dict['network'])
+
+        # set clipping flags
+        if config.args.clip_obs:
+            network.enable_obs_clip()
+        if config.args.clip_reward:
+            network.enable_reward_clip()
+
         network.eval()
         network = network.to(config.args.device)
 

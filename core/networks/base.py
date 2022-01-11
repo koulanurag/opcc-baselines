@@ -13,6 +13,8 @@ class Base(nn.Module):
         self.__deterministic = deterministic
         self.__constant_prior = constant_prior
         self.__prior_scale = prior_scale
+        self.__clip_obs = False
+        self.__clip_reward = False
 
     def forward(self, obs, action):
         raise NotImplementedError
@@ -47,3 +49,23 @@ class Base(nn.Module):
     @property
     def prior_scale(self):
         return self.__prior_scale
+
+    def enable_obs_clip(self):
+        self.__clip_obs = True
+
+    def enable_reward_clip(self):
+        self.__clip_reward = True
+
+    def disable_obs_clip(self):
+        self.__clip_obs = False
+
+    def disable_reward_clip(self):
+        self.__clip_reward = False
+
+    @property
+    def is_obs_clip_enabled(self):
+        return self.__clip_obs
+
+    @property
+    def is_reward_clip_enabled(self):
+        return self.__clip_reward
