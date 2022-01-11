@@ -56,6 +56,9 @@ class NstepDynamicsNetwork:
     def step(self, obs, action):
         if self.__horizon is None:
             raise Exception('need to call reset() before step()')
+        if self.__horizon is not None and self._step_count >= self.__horizon:
+            raise Exception('cannot step beyond set horizon.'
+                            'Consider calling reset()')
         assert obs.shape[0] == action.shape[0] == self._batch_size
 
         # reset observation after every n-steps

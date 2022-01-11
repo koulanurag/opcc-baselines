@@ -143,6 +143,8 @@ class AgDynamicsNetwork(Base, nn.Module):
             else:
                 if self.is_reward_clip_enabled:
                     reward = self.clip_reward(output)
+                else:
+                    reward = output
 
         return next_obs, reward, mu, log_var
 
