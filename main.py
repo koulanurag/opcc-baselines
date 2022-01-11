@@ -145,7 +145,7 @@ def get_args(arg_str: str = None):
     # Process arguments
     args = parser.parse_args(arg_str.split(" ") if arg_str else None)
     args.device = ('cuda' if (not args.no_cuda) and
-                   torch.cuda.is_available() else 'cpu')
+                             torch.cuda.is_available() else 'cpu')
 
     return args, job_args, path_args, wandb_args, \
            dynamics_args, queries_args, uncertain_args
@@ -235,23 +235,23 @@ if __name__ == '__main__':
             table = wandb.Table(dataframe=predicted_estimates_df)
             wandb.log({'query-data': table})
             wandb.log({"mean/q-value-comparison-a":
-                       scatter(table, x="pred_a_mean", y="target_a",
-                               title="q-value-comparison-a")})
+                           scatter(table, x="pred_a_mean", y="target_a",
+                                   title="q-value-comparison-a")})
             wandb.log({"mean/q-value-comparison-b":
-                       scatter(table, x="pred_b_mean", y="target_b",
-                               title="q-value-comparison-b")})
+                           scatter(table, x="pred_b_mean", y="target_b",
+                                   title="q-value-comparison-b")})
             wandb.log({"iqm/q-value-comparison-a":
-                       scatter(table, x="pred_a_iqm", y="target_a",
-                               title="q-value-comparison-a")})
+                           scatter(table, x="pred_a_iqm", y="target_a",
+                                   title="q-value-comparison-a")})
             wandb.log({"iqm/q-value-comparison-b":
-                       scatter(table, x="pred_b_iqm", y="target_b",
-                               title="q-value-comparison-b")})
+                           scatter(table, x="pred_b_iqm", y="target_b",
+                                   title="q-value-comparison-b")})
             wandb.log({"median/q-value-comparison-a":
-                       scatter(table, x="pred_a_median", y="target_a",
-                               title="q-value-comparison-a")})
+                           scatter(table, x="pred_a_median", y="target_a",
+                                   title="q-value-comparison-a")})
             wandb.log({"median/q-value-comparison-b":
-                       scatter(table, x="pred_b_median", y="target_b",
-                               title="q-value-comparison-b")})
+                           scatter(table, x="pred_b_median", y="target_b",
+                                   title="q-value-comparison-b")})
 
     elif args.job == 'uncertainty-test':
         pass
