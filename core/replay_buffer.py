@@ -17,7 +17,7 @@ class BatchOutput(NamedTuple):
 class ReplayBuffer:
     def __init__(self, sequence_dataset, device='cpu'):
         self.dataset = np.array(sequence_dataset)
-        self.__seq_len = np.array([len(seq['rewards'])
+        self._seq_lens = np.array([len(seq['rewards'])
                                    for seq in sequence_dataset])
         self.__obs_size = self.dataset[0]['observations'][0].shape[0]
         self.__action_size = self.dataset[0]['actions'][0].shape[0]
@@ -26,15 +26,15 @@ class ReplayBuffer:
     def sample(self, n: int, chunk_size: int, suppress_warnings: bool = False):
         assert n >= 1, 'batch size should be at least 1'
         assert chunk_size >= 1, 'chunk size should be at least 1'
-        valid_seq = self.__seq_len > chunk_size
+        valid_seq = self._seq_lens > chunk_size
 
         # check for short sequences
-        if sum(valid_seq) == 0:
+        if not valid_seq.max():
             raise Exception('no sequence of chunk-size {}'.format(chunk_size))
-        elif sum(valid_seq) < self.size:
+        elif not valid_seq.min():
             if not suppress_warnings:
                 warnings.warn(": only {} out of {} are considered for"
-                              " sampling".format(sum(valid_seq), self.size))
+                              " sampling".format(valid_seq.sum(), self.size))
 
         # sample batch
         obs = torch.empty((n, chunk_size + 1, self.__obs_size))
@@ -42,9 +42,10 @@ class ReplayBuffer:
         reward = torch.empty((n, chunk_size), dtype=float)
         terminal = torch.empty((n, chunk_size), dtype=bool)
         timeout = torch.empty((n, chunk_size), dtype=bool)
+        batch_seqs = np.random.choice(self.dataset[valid_seq], size=n)
 
         for batch_i in range(n):
-            seq = random.choice(self.dataset[valid_seq])
+            seq = batch_seqs[batch_i]
             seq_size = len(seq['rewards'])
             start_i = random.randint(0, seq_size - chunk_size - 1)
             end_i = start_i + chunk_size
