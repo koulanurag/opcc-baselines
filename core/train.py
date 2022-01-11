@@ -25,7 +25,6 @@ def train_dynamics(config: BaseConfig):
     replay_buffers = {}
     for ensemble_i in range(network.num_ensemble):
         _dataset = random.choices(dataset, k=len(dataset))
-
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
     # set data bounds in network

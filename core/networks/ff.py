@@ -80,8 +80,8 @@ class FFDynamicsNetwork(Base):
         return super(FFDynamicsNetwork, self).to(device, *args, **kwargs)
 
     def __prior_logits(self, obs, action):
-        assert len(obs.shape) == 2
-        assert len(action.shape) == 2
+        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
         hidden = torch.cat((obs, action), dim=1)
         hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc1')(hidden))
@@ -94,8 +94,8 @@ class FFDynamicsNetwork(Base):
         return mu, log_var_logit
 
     def _logits(self, obs, action):
-        assert len(obs.shape) == 2
-        assert len(action.shape) == 2
+        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
         hidden = self.act_fn(self.fc1(torch.cat((obs, action), dim=1)))
         hidden = self.act_fn(self.fc2(hidden))
@@ -143,18 +143,19 @@ class FFDynamicsNetwork(Base):
         return next_obs, reward, done
 
     def update(self, obs, action, next_obs, reward):
-        assert len(obs.shape) == 2
-        assert len(action.shape) == 2
-        assert len(next_obs.shape) == 2
-        assert len(reward.shape) == 2
+        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(action.shape) == 2, 'expected (N x action-size) actions'
+        assert len(next_obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(reward.shape) == 2, 'expected (N x 1) reward'
         assert len(obs) == len(action) == len(next_obs) == len(reward), \
             'batch size is not same'
 
         obs = obs.contiguous()
         action = action.contiguous()
         next_obs = next_obs.contiguous()
-        delta_obs = next_obs.detach() - obs.detach()
         reward = reward.contiguous()
+
+        delta_obs = next_obs.detach() - obs.detach()
         target = torch.cat((delta_obs, reward), dim=1)
 
         mu, log_var = self.forward(obs, action)

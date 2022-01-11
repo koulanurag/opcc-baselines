@@ -74,8 +74,8 @@ class AgDynamicsNetwork(Base, nn.Module):
         return super(AgDynamicsNetwork, self).to(device, *args, **kwargs)
 
     def __prior_logits(self, obs, action):
-        assert len(obs.shape) == 2
-        assert len(action.shape) == 2
+        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
         hidden = self.act_fn(self.prior_fc1(torch.cat((obs, action), dim=1)))
         hidden = self.act_fn(self.prior_fc2(hidden))
@@ -87,8 +87,8 @@ class AgDynamicsNetwork(Base, nn.Module):
         return mu, log_var_logit
 
     def _logits(self, obs, action):
-        assert len(obs.shape) == 2
-        assert len(action.shape) == 2
+        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
         hidden = self.act_fn(self.fc1(torch.cat((obs, action), dim=1)))
         hidden = self.act_fn(self.fc2(hidden))
@@ -102,8 +102,7 @@ class AgDynamicsNetwork(Base, nn.Module):
     def forward(self, obs, action):
         batch_size = obs.shape[0]
         next_obs = torch.zeros((batch_size, self.obs_size)).to(obs.device)
-        reward = None
-        mu, log_var = None, None
+        reward, mu, log_var = None, None, None
         for obs_i in range(self.obs_size + 1):  # add dimension for reward
 
             # create obs
@@ -137,6 +136,7 @@ class AgDynamicsNetwork(Base, nn.Module):
 
             # clip
             if obs_i < self.obs_size:
+                # output is the delta observation
                 next_obs[:, obs_i] = output + obs[:, obs_i]
                 next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i], obs_i)
             else:
@@ -152,18 +152,19 @@ class AgDynamicsNetwork(Base, nn.Module):
         return next_obs, reward, done
 
     def update(self, obs, action, next_obs, reward):
-        assert len(obs.shape) == 2
-        assert len(action.shape) == 2
-        assert len(next_obs.shape) == 2
-        assert len(reward.shape) == 2
+        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(action.shape) == 2, 'expected (N x action-size) actions'
+        assert len(next_obs.shape) == 2, 'expected (N x obs-size) observation'
+        assert len(reward.shape) == 2, 'expected (N x 1) reward'
         assert len(obs) == len(action) == len(next_obs) == len(reward), \
             'batch size is not same'
 
         obs = obs.contiguous()
         action = action.contiguous()
         next_obs = next_obs.contiguous()
-        delta_obs = next_obs.detach() - obs.detach()
         reward = reward.contiguous()
+
+        delta_obs = next_obs.detach() - obs.detach()
         target = torch.cat((delta_obs, reward), dim=1)
 
         _, _, mu, log_var = self.forward(obs, action)
