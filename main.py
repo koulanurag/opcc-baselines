@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import random
 from pathlib import Path
@@ -6,6 +7,7 @@ from pathlib import Path
 import cque
 import numpy as np
 import torch
+import pandas as pd
 import wandb
 from core.config import BaseConfig
 from core.train import train_dynamics
@@ -41,8 +43,8 @@ def get_args(arg_str: str = None):
                                    'uncertainty-test-plot'])
     # paths
     path_args = parser.add_argument_group('paths setup')
-    job_args.add_argument('--dataset-name', default='random',
-                          help='name of the dataset')
+    path_args.add_argument('--dataset-name', default='random',
+                           help='name of the dataset')
     path_args.add_argument('--d4rl-dataset-dir', type=Path,
                            default=Path(os.path.join('~/.d4rl', 'datasets')),
                            help="directory to store d4rl datasets")
@@ -125,7 +127,7 @@ def get_args(arg_str: str = None):
                               help='run count for each query evaluation')
     queries_args.add_argument('--eval-batch-size', type=int,
                               default=128,
-                              help='batch size for query evaluation ')
+                              help='batch size for query evaluation')
     queries_args.add_argument('--clip-obs', action='store_true',
                               help='clip the observation space with bounds '
                                    'for query evaluation')
@@ -141,8 +143,11 @@ def get_args(arg_str: str = None):
                                          'unpaired-confidence-interval',
                                          'ensemble-voting'],
                                 help='type of uncertainty test')
-    uncertain_args.add_argument('--wandb-query-data-run-id', type=str,
-                                help='wandb query run id ')
+    uncertain_args.add_argument('--restore-query-eval-data-from-wandb',
+                                action='store_true',
+                                help='restore query evaluation data from wandb')
+    uncertain_args.add_argument('--wandb-query-eval-data-run-id', type=str,
+                                help='wandb run id  having query eval data')
 
     # Process arguments
     args = parser.parse_args(arg_str.split(" ") if arg_str else None)
@@ -242,7 +247,7 @@ if __name__ == '__main__':
             wandb.run.summary["model-check-point"] = state_dict['epoch_i']
 
             table = wandb.Table(dataframe=predicted_df)
-            wandb.log({'query-data': table})
+            wandb.log({'query-eval-data': table})
             wandb.log({"mean/q-value-comparison-a":
                            scatter(table, x="pred_a_mean", y="target_a",
                                    title="q-value-comparison-a")})
@@ -263,6 +268,32 @@ if __name__ == '__main__':
                                    title="q-value-comparison-b")})
 
     elif args.job == 'uncertainty-test':
-        pass
+        # setup config and restore query evaluation data
+        if args.restore_query_eval_data_from_wandb:
+            assert args.wandb_query_eval_data_run_id is not None, \
+                'w&b id cannot be {}'.format(args.wandb_query_data_run_id)
+            run = wandb.Api().run(args.wandb_query_eval_data_run_id)
+            table_file_path = run.summary.get('query-eval-data').get("path")
+            table_file = wandb.restore(table_file_path,
+                                       run_path=args.wandb_query_data_run_id)
+            table_str = table_file.read()
+            table_dict = json.loads(table_str)
+            query_eval_df = pd.DataFrame(**table_dict)
+        else:
+            config = BaseConfig(args, dynamics_args)
+            query_eval_df = pd.read_pickle(config.evaluate_queries_path)
+
+
+        # # get targets and estimates
+        # return_a_ensemble = np.concatenate([np.expand_dims(query_df['pred_a_{}'.format(ensemble_i)].values, 1)
+        #                                     for ensemble_i in range(args.num_ensemble)], axis=1)
+        # return_b_ensemble = np.concatenate([np.expand_dims(query_df['pred_b_{}'.format(ensemble_i)].values, 1)
+        #                                     for ensemble_i in range(args.num_ensemble)], axis=1)
+        #
+        # horizon = query_eval_df['horizon'].values
+        # query_horizon_candidates = np.unique(query_horizon, axis=0)
+        # target = query_eval_df['target'].values
+        #
+        # ensemble_voting(query_eval_df)
     else:
         raise NotImplementedError()
