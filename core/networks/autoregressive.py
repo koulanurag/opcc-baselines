@@ -47,20 +47,20 @@ class AgDynamicsNetwork(Base, nn.Module):
                     param.requires_grad = False
 
         self.apply(weights_init)
-        max_logvar = (torch.ones((1)).float() / 2)
-        min_logvar = (-torch.ones((1)).float() * 10)
+        max_logvar = torch.ones(1).float() / 2
+        min_logvar = -torch.ones(1).float() * 10
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
         # default bounds
-        self.__obs_max = torch.ones(obs_size) * torch.inf
+        self.__obs_max = torch.ones(obs_size).float() * torch.inf
         self.__obs_max = nn.Parameter(self.__obs_max, requires_grad=False)
-        self.__obs_min = torch.ones(obs_size) * -torch.inf
+        self.__obs_min = torch.ones(obs_size).float() * -torch.inf
         self.__obs_min = nn.Parameter(self.__obs_min, requires_grad=False)
 
-        self.__reward_max = torch.ones(1) * torch.inf
+        self.__reward_max = torch.ones(1).float() * torch.inf
         self.__reward_max = nn.Parameter(self.__reward_max, requires_grad=False)
-        self.__reward_min = torch.ones(1) * -torch.inf
+        self.__reward_min = torch.ones(1).float() * -torch.inf
         self.__reward_min = nn.Parameter(self.__reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
@@ -204,16 +204,16 @@ class AgDynamicsNetwork(Base, nn.Module):
         return self.__reward_max
 
     def set_obs_bound(self, obs_min, obs_max):
-        self.__obs_min = nn.Parameter(torch.tensor(obs_min),
-                                      requires_grad=False)
-        self.__obs_max = nn.Parameter(torch.tensor(obs_max),
-                                      requires_grad=False)
+        obs_min = torch.tensor(obs_min)
+        obs_max = torch.tensor(obs_max)
+        self.__obs_min = nn.Parameter(obs_min, requires_grad=False)
+        self.__obs_max = nn.Parameter(obs_max, requires_grad=False)
 
     def set_reward_bound(self, reward_min, reward_max):
-        self.__reward_min = nn.Parameter(torch.tensor(reward_min),
-                                         requires_grad=False)
-        self.__reward_max = nn.Parameter(torch.tensor(reward_max),
-                                         requires_grad=False)
+        reward_min = torch.tensor(reward_min)
+        reward_max = torch.tensor(reward_max)
+        self.__reward_min = nn.Parameter(reward_min, requires_grad=False)
+        self.__reward_max = nn.Parameter(reward_max, requires_grad=False)
 
     def clip_obs(self, obs, dim: int):
         assert 0 <= dim < self.obs_size

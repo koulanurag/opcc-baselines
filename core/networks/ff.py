@@ -195,16 +195,16 @@ class FFDynamicsNetwork(Base):
         return self.__reward_max
 
     def set_obs_bound(self, obs_min, obs_max):
-        self.__obs_min = nn.Parameter(torch.tensor(obs_min),
-                                      requires_grad=False)
-        self.__obs_max = nn.Parameter(torch.tensor(obs_max),
-                                      requires_grad=False)
+        obs_min = torch.tensor(obs_min)
+        obs_max = torch.tensor(obs_max)
+        self.__obs_min = nn.Parameter(obs_min, requires_grad=False)
+        self.__obs_max = nn.Parameter(obs_max, requires_grad=False)
 
     def set_reward_bound(self, reward_min, reward_max):
-        self.__reward_min = nn.Parameter(torch.tensor(reward_min),
-                                         requires_grad=False)
-        self.__reward_max = nn.Parameter(torch.tensor(reward_max),
-                                         requires_grad=False)
+        reward_min = torch.tensor(reward_min)
+        reward_max = torch.tensor(reward_max)
+        self.__reward_min = nn.Parameter(reward_min, requires_grad=False)
+        self.__reward_max = nn.Parameter(reward_max, requires_grad=False)
 
     def clip_obs(self, obs):
         return torch.clip(obs, min=self.obs_min, max=self.obs_max)
