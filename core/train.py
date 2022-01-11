@@ -26,7 +26,7 @@ def train_dynamics(config: BaseConfig):
     obs_min, obs_max = [], []
     reward_min, reward_max = [], []
     for ensemble_i in range(network.num_ensemble):
-        _dataset = random.choices(dataset, k=len(dataset))
+        _dataset = np.random.choice(dataset, size=len(dataset))
 
         # get data bounds for clipping during evaluation
         observations = np.concatenate([x['observations']
