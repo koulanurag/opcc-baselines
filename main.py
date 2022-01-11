@@ -43,8 +43,6 @@ def get_args(arg_str: str = None):
                                    'uncertainty-test-plot'])
     # paths
     path_args = parser.add_argument_group('paths setup')
-    path_args.add_argument('--dataset-name', default='random',
-                           help='name of the dataset')
     path_args.add_argument('--d4rl-dataset-dir', type=Path,
                            default=Path(os.path.join('~/.d4rl', 'datasets')),
                            help="directory to store d4rl datasets")
@@ -65,6 +63,8 @@ def get_args(arg_str: str = None):
 
     # dynamics args
     dynamics_args = parser.add_argument_group('args for training dynamics')
+    dynamics_args.add_argument('--dataset-name', default='random',
+                               help='name of the dataset')
     dynamics_args.add_argument('--dynamics-type', default='feed-forward',
                                choices=['feed-forward', 'autoregressive'],
                                help='type of dynamics model')
@@ -282,7 +282,6 @@ if __name__ == '__main__':
         else:
             config = BaseConfig(args, dynamics_args)
             query_eval_df = pd.read_pickle(config.evaluate_queries_path)
-
 
         # # get targets and estimates
         # return_a_ensemble = np.concatenate([np.expand_dims(query_df['pred_a_{}'.format(ensemble_i)].values, 1)
