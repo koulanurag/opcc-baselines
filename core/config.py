@@ -71,7 +71,6 @@ class BaseConfig(object):
     def network_path(self):
         return os.path.join(self.exp_dir_path, 'dynamics_network.p')
 
-    @property
     def evaluate_queries_path(self, args, queries_args):
         # hyper-parameters hash for experiment saving
         sorted_args = sorted(queries_args._group_actions,

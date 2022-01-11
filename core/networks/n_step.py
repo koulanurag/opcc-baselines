@@ -37,7 +37,7 @@ class NstepDynamicsNetwork:
             else:
                 raise ValueError()
 
-            net = torch.jit.script(net)
+            # net = torch.jit.script(net)
             setattr(self, 'step_{}'.format(i + 1), net)
 
         self.__horizon = None

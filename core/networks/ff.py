@@ -30,19 +30,15 @@ class FFDynamicsNetwork(Base):
         self.fc3 = nn.Linear(hidden_size, hidden_size)
         self.fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
-        self._prior_prefix = 'prior_'
         if constant_prior:
             layer = nn.Linear(self.obs_size + action_size, hidden_size)
-            setattr(self, self._prior_prefix + 'fc1', layer)
-            layer = nn.Linear(hidden_size, hidden_size)
-            setattr(self, self._prior_prefix + 'fc2', layer)
-            layer = nn.Linear(hidden_size, hidden_size)
-            setattr(self, self._prior_prefix + 'fc3', layer)
-            layer = nn.Linear(hidden_size, 2 * obs_size + 2)
-            setattr(self, self._prior_prefix + 'fc4', layer)
+            self.prior_fc1 = layer
+            self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
+            self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
+            self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
             for name, param in self.named_parameters():
-                if self._prior_prefix in name:
+                if 'prior' in name:
                     param.requires_grad = False
 
         self.apply(weights_init)
@@ -53,41 +49,41 @@ class FFDynamicsNetwork(Base):
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
         # default bounds
-        self.__obs_max = torch.ones(obs_size) * torch.inf
-        self.__obs_max = nn.Parameter(self.__obs_max, requires_grad=False)
-        self.__obs_min = torch.ones(obs_size) * -torch.inf
-        self.__obs_min = nn.Parameter(self.__obs_min, requires_grad=False)
+        self._obs_max = torch.ones(obs_size) * torch.inf
+        self._obs_max = nn.Parameter(self._obs_max, requires_grad=False)
+        self._obs_min = torch.ones(obs_size) * -torch.inf
+        self._obs_min = nn.Parameter(self._obs_min, requires_grad=False)
 
-        self.__reward_max = torch.ones(1) * torch.inf
-        self.__reward_max = nn.Parameter(self.__reward_max, requires_grad=False)
-        self.__reward_min = torch.ones(1) * -torch.inf
-        self.__reward_min = nn.Parameter(self.__reward_min, requires_grad=False)
+        self._reward_max = torch.ones(1) * torch.inf
+        self._reward_max = nn.Parameter(self._reward_max, requires_grad=False)
+        self._reward_min = torch.ones(1) * -torch.inf
+        self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
         non_prior_params = [param for name, param in self.named_parameters()
-                            if self._prior_prefix not in name]
+                            if 'prior' not in name]
         self.optimizer = torch.optim.Adam(non_prior_params, lr=lr)
 
     def to(self, device, *args, **kwargs):
         self.max_logvar.data = self.max_logvar.to(device)
         self.min_logvar.data = self.min_logvar.to(device)
 
-        self.__obs_max.data = self.__obs_max.to(device)
-        self.__obs_min.data = self.__obs_min.to(device)
-        self.__reward_max.data = self.__reward_max.to(device)
-        self.__reward_min.data = self.__reward_min.to(device)
+        self._obs_max.data = self._obs_max.to(device)
+        self._obs_min.data = self._obs_min.to(device)
+        self._reward_max.data = self._reward_max.to(device)
+        self._reward_min.data = self._reward_min.to(device)
 
         return super(FFDynamicsNetwork, self).to(device, *args, **kwargs)
 
-    def __prior_logits(self, obs, action):
+    def _prior_logits(self, obs, action):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
         hidden = torch.cat((obs, action), dim=1)
-        hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc1')(hidden))
-        hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc2')(hidden))
-        hidden = self.act_fn(getattr(self, self._prior_prefix + 'fc3')(hidden))
-        output = getattr(self, self._prior_prefix + 'fc4')(hidden)
+        hidden = self.act_fn(self.prior_fc1(hidden))
+        hidden = self.act_fn(self.prior_fc2(hidden))
+        hidden = self.act_fn(self.prior_fc3(hidden))
+        output = self.fc4(hidden)
 
         mu = output[:, :self.obs_size + 1]
         log_var_logit = output[:, self.obs_size + 1:]
@@ -110,7 +106,7 @@ class FFDynamicsNetwork(Base):
         mu, log_var_logit = self._logits(obs, action)
         if self.constant_prior:
             with torch.no_grad():
-                _mu, _log_var_logit = self.__prior_logits(obs, action)
+                _mu, _log_var_logit = self._prior_logits(obs, action)
                 mu += self.prior_scale * _mu
                 log_var_logit += self.prior_scale * _log_var_logit
         log_var = self.max_logvar - F.softplus(self.max_logvar - log_var_logit)
@@ -183,31 +179,31 @@ class FFDynamicsNetwork(Base):
 
     @property
     def obs_min(self):
-        return self.__obs_min
+        return self._obs_min
 
     @property
     def obs_max(self):
-        return self.__obs_max
+        return self._obs_max
 
     @property
     def reward_min(self):
-        return self.__reward_min
+        return self._reward_min
 
     @property
     def reward_max(self):
-        return self.__reward_max
+        return self._reward_max
 
     def set_obs_bound(self, obs_min, obs_max):
         obs_min = torch.tensor(obs_min)
         obs_max = torch.tensor(obs_max)
-        self.__obs_min = nn.Parameter(obs_min, requires_grad=False)
-        self.__obs_max = nn.Parameter(obs_max, requires_grad=False)
+        self._obs_min = nn.Parameter(obs_min, requires_grad=False)
+        self._obs_max = nn.Parameter(obs_max, requires_grad=False)
 
     def set_reward_bound(self, reward_min, reward_max):
         reward_min = torch.tensor(reward_min)
         reward_max = torch.tensor(reward_max)
-        self.__reward_min = nn.Parameter(reward_min, requires_grad=False)
-        self.__reward_max = nn.Parameter(reward_max, requires_grad=False)
+        self._reward_min = nn.Parameter(reward_min, requires_grad=False)
+        self._reward_max = nn.Parameter(reward_max, requires_grad=False)
 
     def clip_obs(self, obs):
         return torch.clip(obs, min=self.obs_min, max=self.obs_max)
