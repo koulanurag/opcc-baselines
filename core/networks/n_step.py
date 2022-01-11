@@ -36,6 +36,8 @@ class NstepDynamicsNetwork:
                                         prior_scale=prior_scale)
             else:
                 raise ValueError()
+
+            net = torch.jit.script(net)
             setattr(self, 'step_{}'.format(i + 1), net)
 
         self.__horizon = None
@@ -134,13 +136,13 @@ class NstepDynamicsNetwork:
 
         return self
 
-    def train(self, *args, **kwargs):
+    def train(self):
         for i in range(self.n_step):
-            getattr(self, 'step_{}'.format(i + 1)).train(*args, **kwargs)
+            getattr(self, 'step_{}'.format(i + 1)).train()
 
-    def eval(self, *args, **kwargs):
+    def eval(self):
         for i in range(self.n_step):
-            getattr(self, 'step_{}'.format(i + 1)).eval(*args, **kwargs)
+            getattr(self, 'step_{}'.format(i + 1)).eval()
 
     def state_dict(self, *args, **kwargs):
         _dict = {}
