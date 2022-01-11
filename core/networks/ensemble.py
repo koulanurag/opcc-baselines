@@ -112,3 +112,43 @@ class EnsembleDynamicsNetwork:
         for i in range(self.num_ensemble):
             name = 'ensemble_{}'.format(i)
             getattr(self, name).set_reward_bound(reward_min[i], reward_max[i])
+
+    def enable_obs_clip(self):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).enable_obs_clip()
+
+    def enable_reward_clip(self):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).enable_reward_clip()
+
+    def disable_obs_clip(self):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).enable_obs_clip()
+
+    def disable_reward_clip(self):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).disable_reward_clip()
+
+    @property
+    def is_obs_clip_enabled(self):
+        enabled = True
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            enabled = enabled and getattr(self, name).is_obs_clip_enabled()
+            if not enabled:
+                break
+        return enabled
+
+    @property
+    def is_reward_clip_enabled(self):
+        enabled = True
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            enabled = enabled and getattr(self, name).is_reward_clip_enabled()
+            if not enabled:
+                break
+        return enabled

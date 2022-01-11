@@ -173,3 +173,43 @@ class NstepDynamicsNetwork:
     @property
     def n_step(self):
         return self.__n_step
+
+    def enable_obs_clip(self):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).enable_obs_clip()
+
+    def enable_reward_clip(self):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).enable_reward_clip()
+
+    def disable_obs_clip(self):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).enable_obs_clip()
+
+    def disable_reward_clip(self):
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            getattr(self, name).disable_reward_clip()
+
+    @property
+    def is_obs_clip_enabled(self):
+        enabled = True
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            enabled = enabled and getattr(self, name).is_obs_clip_enabled()
+            if not enabled:
+                break
+        return enabled
+
+    @property
+    def is_reward_clip_enabled(self):
+        enabled = True
+        for i in range(self.n_step):
+            name = 'step_{}'.format(i + 1)
+            enabled = enabled and getattr(self, name).is_reward_clip_enabled()
+            if not enabled:
+                break
+        return enabled
