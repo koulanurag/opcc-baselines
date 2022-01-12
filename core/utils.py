@@ -48,7 +48,7 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                 pred_a[_filter, :] = mc_return(network=network,
                                                init_obs=obss_a[_filter],
                                                init_action=actions_a[_filter],
-                                               policy=policy_a,
+                                               policy=policy_a.actor,
                                                horizon=horizon,
                                                device=device,
                                                runs=runs,
@@ -58,7 +58,7 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                 pred_b[_filter, :] = mc_return(network=network,
                                                init_obs=obss_b[_filter],
                                                init_action=actions_b[_filter],
-                                               policy=policy_b,
+                                               policy=policy_b.actor,
                                                horizon=horizon,
                                                device=device,
                                                runs=runs,
@@ -75,10 +75,10 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                    'action_a': actions_a[idx],
                    'obs_b': obss_b[idx],
                    'action_b': actions_b[idx],
-                   'horizon': horizon[idx],
+                   'horizon': horizons[idx],
                    'target': query_batch['target'][idx],
-                   'returns_a': query_batch['info']['returns_a'][idx],
-                   'returns_b': query_batch['info']['returns_b'][idx]},
+                   'return_a': query_batch['info']['return_a'][idx],
+                   'return_b': query_batch['info']['return_b'][idx]},
 
                 # query-a predictions
                 **{'pred_a_{}'.format(e_i): pred_a[idx][e_i]
@@ -102,6 +102,7 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
     return predict_df
 
 
+@torch.no_grad()
 def mc_return(network, init_obs, init_action, policy, horizon: int,
               device='cpu', runs: int = 1, ensemble_mixture: bool = False,
               step_batch_size: int = 128):
@@ -131,7 +132,9 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
         # step
         for step in range(horizon):
             step_obs, reward, done = network.step(step_obs, step_action)
+            assert len(step_obs.shape) == 3, 'expected (batch, ensemble, obs)'
             step_action = policy(step_obs)
+            assert len(step_action.shape) == 3, 'expected (batch, ensemble,action)'
 
             # move to cpu for saving cuda memory
             reward = reward.cpu().detach().numpy()
