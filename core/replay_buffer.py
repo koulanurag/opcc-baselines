@@ -48,7 +48,7 @@ class ReplayBuffer:
         for batch_i in range(n):
             seq = self.dataset[seq_idxs[batch_i]]
             seq_size = seq['step_count']
-            start_i = np.random.randint(0,  seq_size - self.chunk_size - 1)
+            start_i = np.random.randint(0,  seq_size - self.chunk_size)
             end_i = start_i + self.chunk_size
 
             obs[batch_i, :] = seq['observations'][start_i:end_i + 1]
