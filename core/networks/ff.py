@@ -42,8 +42,8 @@ class FFDynamicsNetwork(Base):
 
         self.apply(weights_init)
 
-        max_logvar = (torch.ones((1, obs_size + 1)).float() / 2)
-        min_logvar = (-torch.ones((1, obs_size + 1)).float() * 10)
+        max_logvar = torch.ones((1, obs_size + 1)).float() / 2
+        min_logvar = -torch.ones((1, obs_size + 1)).float() * 10
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
