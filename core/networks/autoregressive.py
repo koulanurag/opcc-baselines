@@ -31,7 +31,7 @@ class AgDynamicsNetwork(Base):
         self.fc4 = nn.Linear(hidden_size, 2)
 
         if constant_prior:
-            layer = nn.Linear(self.obs_size + action_size, hidden_size)
+            layer = nn.Linear(self._input_size, hidden_size)
             self.prior_fc1 = layer
             self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
             self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
