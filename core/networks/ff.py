@@ -53,9 +53,9 @@ class FFDynamicsNetwork(Base):
         self._obs_min = torch.ones(obs_size, dtype=torch.float) * -torch.inf
         self._obs_min = nn.Parameter(self._obs_min, requires_grad=False)
 
-        self._reward_max = torch.ones(1, dtype=torch.float) * torch.inf
+        self._reward_max = torch.tensor(torch.inf, dtype=torch.float)
         self._reward_max = nn.Parameter(self._reward_max, requires_grad=False)
-        self._reward_min = torch.ones(1, dtype=torch.float) * -torch.inf
+        self._reward_min = torch.tensor(-torch.inf, dtype=torch.float)
         self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
