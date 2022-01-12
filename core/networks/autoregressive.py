@@ -39,11 +39,11 @@ class AgDynamicsNetwork(Base):
             for name, param in self.named_parameters():
                 if 'prior' in name:
                     param.requires_grad = False
-                    
+
         self.apply(weights_init)
-        
-        max_logvar = torch.ones(1).float() / 2
-        min_logvar = -torch.ones(1).float() * 10
+
+        max_logvar = torch.ones(1, dtype=torch.float) / 2
+        min_logvar = -torch.ones(1, dtype=torch.float) * 10
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
@@ -182,9 +182,9 @@ class AgDynamicsNetwork(Base):
             inv_var = torch.exp(-log_var)
             mse_loss = torch.mean(torch.pow(mu - target, 2) * inv_var)
             var_loss = torch.mean(log_var)
+            var_loss += 0.01 * torch.sum(self.max_logvar)
+            var_loss -= 0.01 * torch.sum(self.min_logvar)
             loss = mse_loss + var_loss
-            loss += 0.01 * torch.sum(self.max_logvar)
-            loss -= 0.01 * torch.sum(self.min_logvar)
 
         # update
         self.optimizer.zero_grad()
