@@ -82,7 +82,7 @@ class FFDynamicsNetwork(Base):
         hidden = self.act_fn(self.prior_fc1(hidden))
         hidden = self.act_fn(self.prior_fc2(hidden))
         hidden = self.act_fn(self.prior_fc3(hidden))
-        output = self.fc4(hidden)
+        output = self.prior_fc4(hidden)
 
         mu = output[:, :self.obs_size + 1]
         log_var_logit = output[:, self.obs_size + 1:]
