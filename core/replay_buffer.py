@@ -15,55 +15,60 @@ class BatchOutput(NamedTuple):
 
 
 class ReplayBuffer:
-    def __init__(self, sequence_dataset, device='cpu'):
-        self.dataset = np.array(sequence_dataset)
-        self._seq_lens = np.array([len(seq['rewards'])
-                                   for seq in sequence_dataset])
+    def __init__(self, sequence_dataset, chunk_size, device='cpu',
+                 suppress_warnings: bool = False):
+        assert chunk_size >= 1, 'chunk size should be at least 1'
+        self.__chunk_size = chunk_size
+        self.dataset = np.array([{**seq, **{'step_count': len(seq['rewards'])}}
+                                 for seq in sequence_dataset
+                                 if len(seq['rewards']) > chunk_size])
+        # check for short sequences
+        if self.size == 0:
+            raise Exception('no sequence of chunk-size {}'.format(chunk_size))
+        elif 0 < self.size < len(sequence_dataset):
+            if not suppress_warnings:
+                warnings.warn(": only {} out of {} are considered for"
+                              " sampling".format(self.size,
+                                                 len(sequence_dataset)))
+
         self.__obs_size = self.dataset[0]['observations'][0].shape[0]
         self.__action_size = self.dataset[0]['actions'][0].shape[0]
         self.device = device
 
-    def sample(self, n: int, chunk_size: int, suppress_warnings: bool = False):
+    def sample(self, n: int):
         assert n >= 1, 'batch size should be at least 1'
-        assert chunk_size >= 1, 'chunk size should be at least 1'
-        valid_seq = self._seq_lens > chunk_size
-
-        # check for short sequences
-        if not valid_seq.max():
-            raise Exception('no sequence of chunk-size {}'.format(chunk_size))
-        elif not valid_seq.min():
-            if not suppress_warnings:
-                warnings.warn(": only {} out of {} are considered for"
-                              " sampling".format(valid_seq.sum(), self.size))
-
         # sample batch
-        obs = torch.empty((n, chunk_size + 1, self.__obs_size))
-        action = torch.empty((n, chunk_size, self.__action_size))
-        reward = torch.empty((n, chunk_size), dtype=float)
-        terminal = torch.empty((n, chunk_size), dtype=bool)
-        timeout = torch.empty((n, chunk_size), dtype=bool)
-        batch_seqs = np.random.choice(self.dataset[valid_seq], size=n)
+        obs = np.empty((n, self.chunk_size + 1, self.__obs_size))
+        action = np.empty((n, self.chunk_size, self.__action_size))
+        reward = np.empty((n, self.chunk_size))
+        terminal = np.empty((n, self.chunk_size))
+        timeout = np.empty((n, self.chunk_size))
+        seq_idxs = np.random.randint(low=0, high=self.size, size=n)
 
         for batch_i in range(n):
-            seq = batch_seqs[batch_i]
-            seq_size = len(seq['rewards'])
-            start_i = random.randint(0, seq_size - chunk_size - 1)
-            end_i = start_i + chunk_size
+            seq = self.dataset[seq_idxs[batch_i]]
+            seq_size = seq['step_count']
+            start_i = np.random.randint(0,  seq_size - self.chunk_size - 1)
+            end_i = start_i + self.chunk_size
 
-            obs[batch_i, :] = torch.tensor(seq['observations'][start_i:end_i + 1])
-            action[batch_i, :] = torch.tensor(seq['actions'][start_i:end_i])
-            reward[batch_i, :] = torch.tensor(seq['rewards'][start_i:end_i])
-            terminal[batch_i, :] = torch.tensor(seq['terminals'][start_i:end_i])
-            timeout[batch_i, :] = torch.tensor(seq['timeouts'][start_i:end_i])
+            obs[batch_i, :] = seq['observations'][start_i:end_i + 1]
+            action[batch_i, :] = seq['actions'][start_i:end_i]
+            reward[batch_i, :] = seq['rewards'][start_i:end_i]
+            terminal[batch_i, :] = seq['terminals'][start_i:end_i]
+            timeout[batch_i, :] = seq['timeouts'][start_i:end_i]
 
-        obs = obs.to(device=self.device).float()
-        action = action.to(device=self.device).float()
-        reward = reward.to(device=self.device).float()
-        terminal = terminal.to(device=self.device).float()
-        timeout = timeout.to(device=self.device).float()
+        obs = torch.tensor(obs, device=self.device, dtype=torch.float)
+        action = torch.tensor(action, device=self.device, dtype=torch.float)
+        reward = torch.tensor(reward, device=self.device, dtype=torch.float)
+        terminal = torch.tensor(terminal, device=self.device, dtype=torch.float)
+        timeout = torch.tensor(timeout, device=self.device, dtype=torch.float)
 
         return BatchOutput(obs, action, reward, terminal, timeout)
 
     @property
     def size(self):
         return len(self.dataset)
+
+    @property
+    def chunk_size(self):
+        return self.__chunk_size

@@ -30,15 +30,17 @@ def train_dynamics(config: BaseConfig):
 
         # get data bounds for clipping during evaluation
         observations = np.concatenate([x['observations']
-                                       for x in dataset], axis=0)
+                                       for x in _dataset], axis=0)
         obs_min.append(observations.min(axis=0).tolist())
         obs_max.append(observations.max(axis=0).tolist())
 
-        rewards = np.concatenate([x['rewards'] for x in dataset], axis=0)
+        rewards = np.concatenate([x['rewards'] for x in _dataset], axis=0)
         reward_min.append(rewards.min(axis=0).tolist())
         reward_max.append(rewards.max(axis=0).tolist())
 
-        replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
+        replay_buffers[ensemble_i] = ReplayBuffer(_dataset,
+                                                  config.args.n_step_model,
+                                                  config.device)
 
     # setup network
     network.set_obs_bound(obs_min, obs_max)
