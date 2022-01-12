@@ -69,7 +69,7 @@ class AgDynamicsNetwork(Base, nn.Module):
         self.min_logvar.data = self.min_logvar.to(device)
         return super(AgDynamicsNetwork, self).to(device, *args, **kwargs)
 
-    def __prior_logits(self, obs, action):
+    def _prior_logits(self, obs, action):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
