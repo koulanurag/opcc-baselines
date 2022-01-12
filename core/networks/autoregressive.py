@@ -25,47 +25,43 @@ class AgDynamicsNetwork(Base, nn.Module):
         nn.Module.__init__(self)
 
         self.act_fn = getattr(F, activation_function)
-        self.__input_size = 3 * self.obs_size + self.action_size + 1
-        self.fc1 = nn.Linear(self.__input_size, hidden_size)
+        self._input_size = 3 * self.obs_size + self.action_size + 1
+        self.fc1 = nn.Linear(self._input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, hidden_size)
         self.fc4 = nn.Linear(hidden_size, 2)
 
-        self._prior_prefix = 'prior_'
         if constant_prior:
-            layer = nn.Linear(self.__input_size, hidden_size)
-            setattr(self, self._prior_prefix + 'fc1', layer)
-            layer = nn.Linear(hidden_size, hidden_size)
-            setattr(self, self._prior_prefix + 'fc2', layer)
-            layer = nn.Linear(hidden_size, hidden_size)
-            setattr(self, self._prior_prefix + 'fc3', layer)
-            layer = nn.Linear(hidden_size, 2)
-            setattr(self, self._prior_prefix + 'fc4', layer)
-
+            layer = nn.Linear(self.obs_size + action_size, hidden_size)
+            self.prior_fc1 = layer
+            self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
+            self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
+            self.prior_fc4 = nn.Linear(hidden_size, 2)
             for name, param in self.named_parameters():
-                if self._prior_prefix in name:
+                if 'prior' in name:
                     param.requires_grad = False
-
+                    
         self.apply(weights_init)
+        
         max_logvar = torch.ones(1).float() / 2
         min_logvar = -torch.ones(1).float() * 10
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
         # default bounds
-        self.__obs_max = torch.ones(obs_size).float() * torch.inf
-        self.__obs_max = nn.Parameter(self.__obs_max, requires_grad=False)
-        self.__obs_min = torch.ones(obs_size).float() * -torch.inf
-        self.__obs_min = nn.Parameter(self.__obs_min, requires_grad=False)
+        self._obs_max = torch.ones(obs_size).float() * torch.inf
+        self._obs_max = nn.Parameter(self._obs_max, requires_grad=False)
+        self._obs_min = torch.ones(obs_size).float() * -torch.inf
+        self._obs_min = nn.Parameter(self._obs_min, requires_grad=False)
 
-        self.__reward_max = torch.ones(1).float() * torch.inf
-        self.__reward_max = nn.Parameter(self.__reward_max, requires_grad=False)
-        self.__reward_min = torch.ones(1).float() * -torch.inf
-        self.__reward_min = nn.Parameter(self.__reward_min, requires_grad=False)
+        self._reward_max = torch.ones(1).float() * torch.inf
+        self._reward_max = nn.Parameter(self._reward_max, requires_grad=False)
+        self._reward_min = torch.ones(1).float() * -torch.inf
+        self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
         non_prior_params = [param for name, param in self.named_parameters()
-                            if self._prior_prefix not in name]
+                            if 'prior' not in name]
         self.optimizer = torch.optim.Adam(non_prior_params, lr=lr)
 
     def to(self, device, *args, **kwargs):
@@ -114,7 +110,7 @@ class AgDynamicsNetwork(Base, nn.Module):
             mu_i, log_var_logit_i = self._logits(_obs, action)
             if self.constant_prior:
                 with torch.no_grad():
-                    _mu_i, _log_var_logit_i = self.__prior_logits(_obs, action)
+                    _mu_i, _log_var_logit_i = self._prior_logits(_obs, action)
                     mu_i += self.prior_scale * _mu_i
                     log_var_logit_i += self.prior_scale * _log_var_logit_i
             log_var_i = self.max_logvar - F.softplus(self.max_logvar - log_var_logit_i)
@@ -193,31 +189,31 @@ class AgDynamicsNetwork(Base, nn.Module):
 
     @property
     def obs_min(self):
-        return self.__obs_min
+        return self._obs_min
 
     @property
     def obs_max(self):
-        return self.__obs_max
+        return self._obs_max
 
     @property
     def reward_min(self):
-        return self.__reward_min
+        return self._reward_min
 
     @property
     def reward_max(self):
-        return self.__reward_max
+        return self._reward_max
 
     def set_obs_bound(self, obs_min, obs_max):
         obs_min = torch.tensor(obs_min)
         obs_max = torch.tensor(obs_max)
-        self.__obs_min = nn.Parameter(obs_min, requires_grad=False)
-        self.__obs_max = nn.Parameter(obs_max, requires_grad=False)
+        self._obs_min = nn.Parameter(obs_min, requires_grad=False)
+        self._obs_max = nn.Parameter(obs_max, requires_grad=False)
 
     def set_reward_bound(self, reward_min, reward_max):
         reward_min = torch.tensor(reward_min)
         reward_max = torch.tensor(reward_max)
-        self.__reward_min = nn.Parameter(reward_min, requires_grad=False)
-        self.__reward_max = nn.Parameter(reward_max, requires_grad=False)
+        self._reward_min = nn.Parameter(reward_min, requires_grad=False)
+        self._reward_max = nn.Parameter(reward_max, requires_grad=False)
 
     def clip_obs(self, obs, dim: int):
         assert 0 <= dim < self.obs_size
