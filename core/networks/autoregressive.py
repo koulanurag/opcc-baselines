@@ -6,7 +6,7 @@ from .base import Base
 from .utils import weights_init, is_terminal
 
 
-class AgDynamicsNetwork(Base, nn.Module):
+class AgDynamicsNetwork(Base):
     """
     Autoregressive Dynamics Network
     """
@@ -22,7 +22,6 @@ class AgDynamicsNetwork(Base, nn.Module):
                       deterministic=deterministic,
                       constant_prior=constant_prior,
                       prior_scale=prior_scale)
-        nn.Module.__init__(self)
 
         self.act_fn = getattr(F, activation_function)
         self._input_size = 3 * self.obs_size + self.action_size + 1

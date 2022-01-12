@@ -103,23 +103,23 @@ class NstepDynamicsNetwork:
 
                 if len(obs) == 0:
                     break
-                else:
-                    act = batch.action[:, :i + 1][~dones]
-                    act = act.view(act.shape[0], act.shape[1] * act.shape[2])
-                    next_obs = batch.obs[:, i + 1][~dones]
 
-                    # n-step return
-                    reward = batch.reward[:, :i + 1][~dones]
-                    reward_sum = reward.sum(dim=1).unsqueeze(-1)
+                act = batch.action[:, :i + 1][~dones]
+                act = act.view(act.shape[0], act.shape[1] * act.shape[2])
+                next_obs = batch.obs[:, i + 1][~dones]
 
-                    # update
-                    _loss = dynamics.update(obs, act, next_obs, reward_sum)
-                    for k, v in _loss.items():
-                        loss[_name][k] += v
+                # n-step return
+                reward = batch.reward[:, :i + 1][~dones]
+                reward_sum = reward.sum(dim=1).unsqueeze(-1)
 
-                    # once done; don't update subsequent n-step dynamics
-                    _dones = torch.logical_or(dones, batch.terminal[:, i])
-                    dones = torch.logical_or(_dones, batch.timeout[:, i])
+                # update
+                _loss = dynamics.update(obs, act, next_obs, reward_sum)
+                for k, v in _loss.items():
+                    loss[_name][k] += v
+
+                # once done; don't update subsequent n-step dynamics
+                _dones = torch.logical_or(dones, batch.terminal[:, i])
+                dones = torch.logical_or(_dones, batch.timeout[:, i])
 
         # mean with batch count
         for k in loss:

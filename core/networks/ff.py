@@ -22,7 +22,6 @@ class FFDynamicsNetwork(Base):
                       deterministic=deterministic,
                       constant_prior=constant_prior,
                       prior_scale=prior_scale)
-        nn.Module.__init__(self)
 
         self.act_fn = getattr(F, activation_function)
         self.fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
@@ -141,6 +140,7 @@ class FFDynamicsNetwork(Base):
         done = is_terminal(self.env_name, next_obs.cpu().detach())
         return next_obs, reward, done
 
+    @torch.jit.export
     def update(self, obs, action, next_obs, reward):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'
@@ -161,7 +161,7 @@ class FFDynamicsNetwork(Base):
         assert len(mu.shape) == len(log_var.shape) == 2
 
         if self.deterministic:
-            loss = nn.MSELoss()(mu, target)
+            loss = torch.mean(torch.pow(mu - target, 2))
         else:
             inv_var = torch.exp(-log_var)
             mse_loss = torch.mean(torch.pow(mu - target, 2) * inv_var)
