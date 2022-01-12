@@ -35,7 +35,7 @@ class ReplayBuffer:
         self.__action_size = self.dataset[0]['actions'][0].shape[0]
         self.device = device
 
-    def sample(self, n: int):
+    def sample(self, n: int) -> BatchOutput:
         assert n >= 1, 'batch size should be at least 1'
         # sample batch
         obs = np.empty((n, self.chunk_size + 1, self.__obs_size))
