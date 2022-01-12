@@ -165,9 +165,9 @@ class FFDynamicsNetwork(Base):
             inv_var = torch.exp(-log_var)
             mse_loss = torch.mean(torch.pow(mu - target, 2) * inv_var)
             var_loss = torch.mean(log_var)
+            var_loss += 0.01 * torch.sum(self.max_logvar)
+            var_loss -= 0.01 * torch.sum(self.min_logvar)
             loss = mse_loss + var_loss
-            loss += 0.01 * torch.sum(self.max_logvar)
-            loss -= 0.01 * torch.sum(self.min_logvar)
 
         # update
         self.optimizer.zero_grad()
