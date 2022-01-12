@@ -22,22 +22,24 @@ def train_dynamics(config: BaseConfig):
     # create replay buffers with bootstrap sampling
     dataset = cque.get_sequence_dataset(config.args.env_name,
                                         config.args.dataset_name)
+
+    # get data bounds for clipping during evaluation
+    observations = np.concatenate([x['observations'] for x in dataset], axis=0)
+    obs_min = observations.min(axis=0).tolist()
+    obs_max = observations.max(axis=0).tolist()
+    obs_min = [obs_min for _ in range(network.num_ensemble)]
+    obs_max = [obs_max for _ in range(network.num_ensemble)]
+
+    rewards = np.concatenate([x['rewards'] for x in dataset], axis=0)
+    reward_min = rewards.min(axis=0).tolist()
+    reward_max = rewards.max(axis=0).tolist()
+    reward_min = [reward_min for _ in range(network.num_ensemble)]
+    reward_max = [reward_max for _ in range(network.num_ensemble)]
+
     replay_buffers = {}
-    obs_min, obs_max = [], []
-    reward_min, reward_max = [], []
     for ensemble_i in range(network.num_ensemble):
         _dataset = np.random.choice(dataset, size=len(dataset))
-
-        # get data bounds for clipping during evaluation
-        observations = np.concatenate([x['observations']
-                                       for x in _dataset], axis=0)
-        obs_min.append(observations.min(axis=0).tolist())
-        obs_max.append(observations.max(axis=0).tolist())
-
-        rewards = np.concatenate([x['rewards'] for x in _dataset], axis=0)
-        reward_min.append(rewards.min(axis=0).tolist())
-        reward_max.append(rewards.max(axis=0).tolist())
-
+        # Todo: get bounds for each _dataset and optimize it
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset,
                                                   config.args.n_step_model,
                                                   config.device)
