@@ -48,14 +48,14 @@ class FFDynamicsNetwork(Base):
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
         # default bounds
-        self._obs_max = torch.ones(obs_size) * torch.inf
+        self._obs_max = torch.ones(obs_size, dtype=torch.float) * torch.inf
         self._obs_max = nn.Parameter(self._obs_max, requires_grad=False)
-        self._obs_min = torch.ones(obs_size) * -torch.inf
+        self._obs_min = torch.ones(obs_size, dtype=torch.float) * -torch.inf
         self._obs_min = nn.Parameter(self._obs_min, requires_grad=False)
 
-        self._reward_max = torch.ones(1) * torch.inf
+        self._reward_max = torch.ones(1, dtype=torch.float) * torch.inf
         self._reward_max = nn.Parameter(self._reward_max, requires_grad=False)
-        self._reward_min = torch.ones(1) * -torch.inf
+        self._reward_min = torch.ones(1, dtype=torch.float) * -torch.inf
         self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
@@ -140,7 +140,6 @@ class FFDynamicsNetwork(Base):
         done = is_terminal(self.env_name, next_obs.cpu().detach())
         return next_obs, reward, done
 
-    @torch.jit.export
     def update(self, obs, action, next_obs, reward):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'

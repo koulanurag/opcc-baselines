@@ -48,14 +48,14 @@ class AgDynamicsNetwork(Base):
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
         # default bounds
-        self._obs_max = torch.ones(obs_size).float() * torch.inf
+        self._obs_max = torch.ones(obs_size, dtype=torch.float) * torch.inf
         self._obs_max = nn.Parameter(self._obs_max, requires_grad=False)
-        self._obs_min = torch.ones(obs_size).float() * -torch.inf
+        self._obs_min = torch.ones(obs_size, dtype=torch.float) * -torch.inf
         self._obs_min = nn.Parameter(self._obs_min, requires_grad=False)
 
-        self._reward_max = torch.ones(1).float() * torch.inf
+        self._reward_max = torch.ones(1, dtype=torch.float) * torch.inf
         self._reward_max = nn.Parameter(self._reward_max, requires_grad=False)
-        self._reward_min = torch.ones(1).float() * -torch.inf
+        self._reward_min = torch.ones(1, dtype=torch.float) * -torch.inf
         self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
 
         # create optimizer with no prior parameters
@@ -66,13 +66,20 @@ class AgDynamicsNetwork(Base):
     def to(self, device, *args, **kwargs):
         self.max_logvar.data = self.max_logvar.to(device)
         self.min_logvar.data = self.min_logvar.to(device)
+
+        self._obs_max.data = self._obs_max.to(device)
+        self._obs_min.data = self._obs_min.to(device)
+        self._reward_max.data = self._reward_max.to(device)
+        self._reward_min.data = self._reward_min.to(device)
+
         return super(AgDynamicsNetwork, self).to(device, *args, **kwargs)
 
     def _prior_logits(self, obs, action):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'
 
-        hidden = self.act_fn(self.prior_fc1(torch.cat((obs, action), dim=1)))
+        hidden = torch.cat((obs, action), dim=1)
+        hidden = self.act_fn(self.prior_fc1(hidden))
         hidden = self.act_fn(self.prior_fc2(hidden))
         hidden = self.act_fn(self.prior_fc3(hidden))
         output = self.prior_fc4(hidden)
@@ -170,7 +177,7 @@ class AgDynamicsNetwork(Base):
         assert len(mu.shape) == len(log_var.shape) == 2
 
         if self.deterministic:
-            loss = nn.MSELoss()(mu, target)
+            loss = torch.mean(torch.pow(mu - target, 2))
         else:
             inv_var = torch.exp(-log_var)
             mse_loss = torch.mean(torch.pow(mu - target, 2) * inv_var)
