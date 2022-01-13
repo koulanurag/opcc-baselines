@@ -68,7 +68,9 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
         for idx in range(len(obss_a)):
             _stat = {
                 # ground-truth info
-                **{'query_key': (policy_a_id, policy_b_id),
+                **{'env_name': policy_a_id[0],
+                   'policy_a_id': policy_a_id[1],
+                   'policy_b_id': policy_b_id[1],
                    'query_idx': idx,
                    'policy_ids': (policy_a_id[1], policy_b_id[1]),
                    'obs_a': obss_a[idx],

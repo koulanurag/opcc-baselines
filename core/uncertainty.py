@@ -44,8 +44,11 @@ def _voting(pred_a, pred_b, target, conf_interval, dict_to_add=None):
                 'confidence_threshold': confidence}
         if dict_to_add is not None:
             _log = {**_log, **dict_to_add}
+
         uncertainty_df.append(
             pd.DataFrame({_k: [_v] for _k, _v in _log.items()}))
+
+    return uncertainty_df
 
 
 def ensemble_voting(eval_df, ensemble_size_interval: int, num_ensemble: int,
@@ -61,17 +64,18 @@ def ensemble_voting(eval_df, ensemble_size_interval: int, num_ensemble: int,
     # process for ensemble counts
     ensemble_uncertainty_df = []
     for ensemble_count in np.arange(min(ensemble_size_interval, num_ensemble),
+                                    num_ensemble+1,
                                     ensemble_size_interval):
         ensemble_uncertainty_df += _voting(pred_a[:, :ensemble_count],
                                            pred_b[:, :ensemble_count],
                                            target,
                                            confidence_interval,
-                                           {'ensemble-count': ensemble_count})
+                                           {'ensemble_count': ensemble_count})
     ensemble_uncertainty_df = pd.concat(ensemble_uncertainty_df,
                                         ignore_index=True)
 
     # process for horizons
-    horizons = eval_df[['horizon']].values
+    horizons = eval_df['horizon'].values
     horizon_candidates = np.unique(horizons, axis=0)
     horizon_uncertainty_df = []
 

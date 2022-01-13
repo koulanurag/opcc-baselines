@@ -243,9 +243,10 @@ if __name__ == '__main__':
                                         batch_size=args.eval_batch_size,
                                         device=args.device,
                                         ensemble_mixture=args.ensemble_mixture)
+        predicted_df.to_pickle(config.evaluate_queries_path(args,
+                                                            queries_args))
 
-        # store results:
-        predicted_df.to_pickle(config.evaluate_queries_path(args, queries_args))
+        # log data on wandb
         if args.use_wandb:
             wandb.run.summary["model-check-point"] = state_dict['update']
 
@@ -275,9 +276,9 @@ if __name__ == '__main__':
         # restore query evaluation data
         if args.restore_query_eval_data_from_wandb:
             assert args.wandb_query_eval_data_run_id is not None, \
-                'w&b id cannot be {}'.format(args.wandb_query_data_run_id)
+                'w&b id cannot be {}'.format(args.wandb_query_eval_data_run_id)
             run = wandb.Api().run(args.wandb_query_eval_data_run_id)
-            remote_config = wandb.Api().run(args.wandb_dynamics_run_id).config
+            remote_config = wandb.Api().run(args.wandb_query_eval_data_run_id).config
             assert args.env_name == remote_config['env_name']
 
             # preserve original dynamics args
@@ -293,7 +294,7 @@ if __name__ == '__main__':
             # download query-evaluation data
             table_file_path = run.summary.get('query-eval-data').get("path")
             table_file = wandb.restore(table_file_path,
-                                       run_path=args.wandb_query_data_run_id)
+                                       run_path=args.wandb_query_eval_data_run_id)
             table_str = table_file.read()
             table_dict = json.loads(table_str)
             query_eval_df = pd.DataFrame(**table_dict)
@@ -307,10 +308,10 @@ if __name__ == '__main__':
         # uncertainty-test
         # ################
 
-        ensemble_df, horizon_df = ensemble_voting(query_eval_df)
-
-        ensemble_df_table = wandb.Table(dataframe=ensemble_df)
-        horizon_df_table = wandb.Table(dataframe=horizon_df)
+        ensemble_df, horizon_df = ensemble_voting(query_eval_df,
+                                                  ensemble_size_interval=10,
+                                                  num_ensemble=config.args.num_ensemble,
+                                                  confidence_interval=0.1)
 
         # setup for saving data on wandb
         if args.use_wandb:
@@ -326,13 +327,33 @@ if __name__ == '__main__':
                                  for x in queries_args._group_actions})
             wandb.config.update({x.dest: vars(args)[x.dest]
                                  for x in uncertainty_args._group_actions})
+
+            ensemble_df_table = wandb.Table(dataframe=ensemble_df)
+            horizon_df_table = wandb.Table(dataframe=horizon_df)
             wandb.log({'ensemble-data': ensemble_df,
                        'horizon-data': horizon_df})
 
-            wandb.log({'horizon-accuracy':
-                           wandb.plot.bar(ensemble_df_table,
-                                          "horizon", "accuracy",
-                                          title="Accuracy across Horizon")})
+            for category, _category_df in [('ensemble_count', ensemble_df),
+                                           ('horizon', horizon_df)]:
+                categories = _category_df[category].unique()
+                conf_threshold = _category_df['confidence_threshold'].unique()
+                categories.sort()
+                conf_threshold.sort()
+                ys = {'accuracy': [], 'abstain': [], 'abstain_count': []}
+                for cat in categories:
+                    _filter = _category_df[category] == cat
+                    _sub_df = _category_df[_filter].sort_values(by=['confidence_threshold'])
+                    ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
+                    ys['abstain'].append(_sub_df['abstain'].values.tolist())
+                    ys['abstain-count'].append(_sub_df['abstain_count'].values.tolist())
 
-else:
-    raise NotImplementedError()
+                for key, val in ys.items():
+                    wandb.log({'{}-{}'.format(category, key): wandb.plot.line_series(
+                        xs=conf_threshold,
+                        ys=val,
+                        keys=["{}:{}".format(category, e) for e in categories],
+                        title='{}-{}'.format(category, key),
+                        xname="confidence-threshold")})
+
+    else:
+        raise NotImplementedError()
