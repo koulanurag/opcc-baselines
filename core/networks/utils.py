@@ -24,8 +24,8 @@ def is_terminal(env_name, obs):
     """
     Reference:
     - Page 12: https://arxiv.org/pdf/1604.06778.pdf
-    - MBPO original paper: https://github.com/jannerm/mbpo/tree/ac694ff9f1ebb789cc5b3f164d9d67f93ed8f129/mbpo/static
-    - MBPO Pytorch paper: https://openreview.net/pdf?id=rkezvT9f6r
+    - MBPO original paper code: https://github.com/jannerm/mbpo/tree/ac694ff9f1ebb789cc5b3f164d9d67f93ed8f129/mbpo/static
+    - MBPO Pytorch paper reference: https://openreview.net/pdf?id=rkezvT9f6r
     """
 
     if env_name == "Hopper-v2":
