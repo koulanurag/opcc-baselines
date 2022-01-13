@@ -27,9 +27,10 @@ class EnsembleDynamicsNetwork:
                                         prior_scale=prior_scale)
             setattr(self, 'ensemble_{}'.format(i), _net)
 
-    def reset(self, horizon=1, batch_size=1):
+    def reset(self, horizon=1, batch_size=1, reset_n_step=None):
         for i in range(self.num_ensemble):
-            getattr(self, 'ensemble_{}'.format(i)).reset(horizon, batch_size)
+            getattr(self, 'ensemble_{}'.format(i)).reset(horizon, batch_size,
+                                                         reset_n_step)
 
     def step(self, obs, action):
         assert len(obs.shape) == 3, '(batch , ensemble ,obs. size) required.'

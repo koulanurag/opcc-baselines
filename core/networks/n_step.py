@@ -49,7 +49,8 @@ class NstepDynamicsNetwork:
         self._dones = None
 
     def reset(self, horizon=1, batch_size=1, reset_n_step=None):
-        assert reset_n_step is None or reset_n_step <= self.n_step
+        if not (reset_n_step is None or 1 <= reset_n_step <= self.n_step):
+            raise ValueError('reset_n_step must be in [1,{}]'.format(self.n_step))
 
         self.__horizon = horizon
         self._batch_size = batch_size
