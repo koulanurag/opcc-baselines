@@ -44,16 +44,20 @@ class NstepDynamicsNetwork:
         self._action_hist = None  # maintains n-step actions
         self._init_obs = None  # maintains initial observation
         self._step_count = None
+        self._reset_n_step = None
         self._batch_size = None
         self._dones = None
 
-    def reset(self, horizon=1, batch_size=1):
+    def reset(self, horizon=1, batch_size=1, reset_n_step=None):
+        assert reset_n_step is None or reset_n_step <= self.n_step
+
         self.__horizon = horizon
         self._batch_size = batch_size
         self._dones = torch.zeros(batch_size).bool()
         self._step_count = 0
         self._action_hist = None
         self._init_obs = None
+        self._reset_n_step = self.n_step if reset_n_step is None else reset_n_step
 
     def step(self, obs, action):
         if self.__horizon is None:
@@ -64,20 +68,20 @@ class NstepDynamicsNetwork:
         assert obs.shape[0] == action.shape[0] == self._batch_size
 
         # reset observation after every n-steps
-        if self._step_count % self.n_step == 0:
+        if self._step_count % self._reset_n_step == 0:
             self._init_obs = obs
             self._action_hist = action
         else:
             self._action_hist = torch.cat((self._action_hist, action), dim=1)
 
         # step
-        step_i = (self._step_count % self.n_step) + 1
+        step_i = (self._step_count % self._reset_n_step) + 1
         dynamics = getattr(self, 'step_{}'.format(step_i))
         next_obs, reward, done = dynamics.step(self._init_obs, self._action_hist)
         self._step_count += 1
 
         # return reward only on end of horizon or on meeting n-step dynamics
-        if ((self._step_count % self.n_step) != 0 and
+        if ((self._step_count % self._reset_n_step) != 0 and
                 self._step_count != self.__horizon):
             reward = torch.zeros_like(reward)
         else:

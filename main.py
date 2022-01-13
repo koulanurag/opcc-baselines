@@ -33,8 +33,6 @@ def get_args(arg_str: str = None):
 
     # job arguments
     job_args = parser.add_argument_group('job args')
-    job_args.add_argument('--env-name', default='HalfCheetah-v2',
-                          help='name of the environment')
     job_args.add_argument('--no-cuda', action='store_true',
                           help='no cuda usage')
     job_args.add_argument('--job', required=True,
@@ -55,7 +53,7 @@ def get_args(arg_str: str = None):
                            help="directory to store results")
     # wandb setup
     wandb_args = parser.add_argument_group('wandb setup')
-    wandb_args.add_argument('--wandb-project-name', default='cque-baselines',
+    wandb_args.add_argument('--wandb-project-name', default='cque-baselines-1',
                             help='name of the wandb project')
     wandb_args.add_argument('--use-wandb', action='store_true',
                             help='use Weight and bias visualization lib')
@@ -64,6 +62,8 @@ def get_args(arg_str: str = None):
 
     # dynamics args
     dynamics_args = parser.add_argument_group('args for training dynamics')
+    job_args.add_argument('--env-name', default='HalfCheetah-v2',
+                          help='name of the environment')
     dynamics_args.add_argument('--dataset-name', default='random',
                                help='name of the dataset')
     dynamics_args.add_argument('--dynamics-type', default='feed-forward',
@@ -125,6 +125,8 @@ def get_args(arg_str: str = None):
                               help='if enabled, mixes ensemble models '
                                    'for query evaluation  ')
     queries_args.add_argument('--eval-runs', type=int, default=1,
+                              help='run count for each query evaluation')
+    queries_args.add_argument('--reset-n-step', type=int, default=1,
                               help='run count for each query evaluation')
     queries_args.add_argument('--eval-batch-size', type=int,
                               default=128,
@@ -205,6 +207,8 @@ if __name__ == '__main__':
         else:
             config = BaseConfig(args, dynamics_args)
 
+        assert args.reset_n_step <= config.args.n_step_model
+
         # setup experiment tracking
         if args.use_wandb:
             wandb.init(job_type=args.job,
@@ -242,7 +246,8 @@ if __name__ == '__main__':
                                         runs=args.eval_runs,
                                         batch_size=args.eval_batch_size,
                                         device=args.device,
-                                        ensemble_mixture=args.ensemble_mixture)
+                                        ensemble_mixture=args.ensemble_mixture,
+                                        reset_n_step=args.reset_n_step)
         predicted_df.to_pickle(config.evaluate_queries_path(args,
                                                             queries_args))
 

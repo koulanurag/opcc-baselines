@@ -23,8 +23,8 @@ def init_logger(base_path: str, name: str):
     logger.setLevel(logging.DEBUG)
 
 
-def evaluate_queries(queries, network, runs, batch_size, device='cpu',
-                     ensemble_mixture=False):
+def evaluate_queries(queries, network, runs, batch_size, reset_n_step,
+                     device='cpu', ensemble_mixture=False):
     predict_df = pd.DataFrame()
     for (policy_a_id, policy_b_id), query_batch in queries.items():
 
@@ -50,6 +50,7 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                                                init_action=actions_a[_filter],
                                                policy=policy_a.actor,
                                                horizon=horizon,
+                                               reset_n_step=reset_n_step,
                                                device=device,
                                                runs=runs,
                                                ensemble_mixture=ensemble_mixture,
@@ -60,6 +61,7 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
                                                init_action=actions_b[_filter],
                                                policy=policy_b.actor,
                                                horizon=horizon,
+                                               reset_n_step=reset_n_step,
                                                device=device,
                                                runs=runs,
                                                ensemble_mixture=ensemble_mixture,
@@ -106,7 +108,7 @@ def evaluate_queries(queries, network, runs, batch_size, device='cpu',
 
 @torch.no_grad()
 def mc_return(network, init_obs, init_action, policy, horizon: int,
-              device='cpu', runs: int = 1, ensemble_mixture: bool = False,
+              reset_n_step: int, device='cpu', runs: int = 1, ensemble_mixture: bool = False,
               step_batch_size: int = 128):
     assert len(init_obs) == len(init_action), 'batch size not same'
     batch_size, obs_size = init_obs.shape
@@ -129,7 +131,8 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
         # reset
         step_obs = init_obs[batch_idx:batch_end_idx].to(device)
         step_action = init_action[batch_idx:batch_end_idx].to(device)
-        network.reset(horizon=horizon, batch_size=len(step_obs))
+        network.reset(horizon=horizon, batch_size=len(step_obs),
+                      reset_n_step=reset_n_step)
 
         # step
         for step in range(horizon):
