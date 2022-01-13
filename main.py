@@ -12,6 +12,7 @@ import wandb
 from core.config import BaseConfig
 from core.train import train_dynamics
 from core.utils import evaluate_queries
+from core.uncertainty import ensemble_voting
 from wandb.plot import scatter
 
 
@@ -58,7 +59,7 @@ def get_args(arg_str: str = None):
                             help='name of the wandb project')
     wandb_args.add_argument('--use-wandb', action='store_true',
                             help='use Weight and bias visualization lib')
-    wandb_args.add_argument('--wandb-dir', default=os.path.join('~/.wandb'),
+    wandb_args.add_argument('--wandb-dir', default=os.path.join('~/'),
                             help="directory Path to store wandb data")
 
     # dynamics args
@@ -188,14 +189,16 @@ if __name__ == '__main__':
                 'w&b id cannot be {}'.format(args.wandb_dynamics_run_id)
             remote_config = wandb.Api().run(args.wandb_dynamics_run_id).config
             assert args.env_name == remote_config['env_name']
-            for key in remote_config:
-                if key in dynamics_args:
-                    setattr(args, key, remote_config[key])
-                    setattr(dynamics_args, key, remote_config[key])
+
+            # preserve original dynamics args
+            for _arg in dynamics_args._group_actions:
+                setattr(args, _arg.dest, remote_config[_arg.dest])
+                setattr(dynamics_args, _arg.dest, remote_config[_arg.dest])
 
             # download dynamics
             config = BaseConfig(args, dynamics_args)
-            root, name = config.checkpoint_path
+            root = os.path.dirname(config.checkpoint_path)
+            name = os.path.basename(config.checkpoint_path)
             os.makedirs(root, exist_ok=True)
             wandb.restore(name=name, run_path=args.wandb_dynamics_run_id,
                           replace=True, root=root)
@@ -220,7 +223,7 @@ if __name__ == '__main__':
             'dynamics network not found: {}'.format(config.checkpoint_path)
         network = config.get_uniform_dynamics_network()
         state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
-        print('state check-point update:{}'.format(state_dict['update_i']))
+        print('state check-point update:{}'.format(state_dict['update']))
         network.load_state_dict(state_dict['network'])
 
         # set clipping flags
@@ -242,9 +245,9 @@ if __name__ == '__main__':
                                         ensemble_mixture=args.ensemble_mixture)
 
         # store results:
-        predicted_df.to_pickle(config.evaluate_queries_path)
+        predicted_df.to_pickle(config.evaluate_queries_path(args, queries_args))
         if args.use_wandb:
-            wandb.run.summary["model-check-point"] = state_dict['epoch_i']
+            wandb.run.summary["model-check-point"] = state_dict['update']
 
             table = wandb.Table(dataframe=predicted_df)
             wandb.log({'query-eval-data': table})
@@ -268,31 +271,68 @@ if __name__ == '__main__':
                                    title="q-value-comparison-b")})
 
     elif args.job == 'uncertainty-test':
-        # setup config and restore query evaluation data
+        query_eval_df = None
+        # restore query evaluation data
         if args.restore_query_eval_data_from_wandb:
             assert args.wandb_query_eval_data_run_id is not None, \
                 'w&b id cannot be {}'.format(args.wandb_query_data_run_id)
             run = wandb.Api().run(args.wandb_query_eval_data_run_id)
+            remote_config = wandb.Api().run(args.wandb_dynamics_run_id).config
+            assert args.env_name == remote_config['env_name']
+
+            # preserve original dynamics args
+            for _arg in dynamics_args._group_actions:
+                setattr(args, _arg.dest, remote_config[_arg.dest])
+                setattr(dynamics_args, _arg.dest, remote_config[_arg.dest])
+
+            # preserve original query eval args
+            for _arg in queries_args._group_actions:
+                setattr(args, _arg.dest, remote_config[_arg.dest])
+                setattr(queries_args, _arg.dest, remote_config[_arg.dest])
+
+            # download query-evaluation data
             table_file_path = run.summary.get('query-eval-data').get("path")
             table_file = wandb.restore(table_file_path,
                                        run_path=args.wandb_query_data_run_id)
             table_str = table_file.read()
             table_dict = json.loads(table_str)
             query_eval_df = pd.DataFrame(**table_dict)
-        else:
-            config = BaseConfig(args, dynamics_args)
-            query_eval_df = pd.read_pickle(config.evaluate_queries_path)
 
-        # # get targets and estimates
-        # return_a_ensemble = np.concatenate([np.expand_dims(query_df['pred_a_{}'.format(ensemble_i)].values, 1)
-        #                                     for ensemble_i in range(args.num_ensemble)], axis=1)
-        # return_b_ensemble = np.concatenate([np.expand_dims(query_df['pred_b_{}'.format(ensemble_i)].values, 1)
-        #                                     for ensemble_i in range(args.num_ensemble)], axis=1)
-        #
-        # horizon = query_eval_df['horizon'].values
-        # query_horizon_candidates = np.unique(query_horizon, axis=0)
-        # target = query_eval_df['target'].values
-        #
-        # ensemble_voting(query_eval_df)
-    else:
-        raise NotImplementedError()
+        config = BaseConfig(args, dynamics_args)
+        if query_eval_df is None:
+            query_eval_df = pd.read_pickle(
+                config.evaluate_queries_path(args, queries_args))
+
+        # ################
+        # uncertainty-test
+        # ################
+
+        ensemble_df, horizon_df = ensemble_voting(query_eval_df)
+
+        ensemble_df_table = wandb.Table(dataframe=ensemble_df)
+        horizon_df_table = wandb.Table(dataframe=horizon_df)
+
+        # setup for saving data on wandb
+        if args.use_wandb:
+            wandb.init(job_type=args.job,
+                       dir=args.wandb_dir,
+                       project=args.wandb_project_name + '-' + args.job,
+                       settings=wandb.Settings(start_method="thread"))
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in job_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in dynamics_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in queries_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in uncertainty_args._group_actions})
+            wandb.log({'ensemble-data': ensemble_df,
+                       'horizon-data': horizon_df})
+
+            wandb.log({'horizon-accuracy':
+                           wandb.plot.bar(ensemble_df_table,
+                                          "horizon", "accuracy",
+                                          title="Accuracy across Horizon")})
+
+else:
+    raise NotImplementedError()
