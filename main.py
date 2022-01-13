@@ -350,7 +350,7 @@ if __name__ == '__main__':
                     _sub_df = _category_df[_filter].sort_values(by=['confidence_threshold'])
                     ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
                     ys['abstain'].append(_sub_df['abstain'].values.tolist())
-                    ys['abstain-count'].append(_sub_df['abstain_count'].values.tolist())
+                    ys['abstain_count'].append(_sub_df['abstain_count'].values.tolist())
 
                 for key, val in ys.items():
                     wandb.log({'{}-{}'.format(category, key): wandb.plot.line_series(
