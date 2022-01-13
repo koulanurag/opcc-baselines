@@ -78,8 +78,9 @@ class BaseConfig(object):
         query_args_str = [str(vars(args)[hp.dest]) for hp in sorted_args]
         query_args_byte = bytes(''.join(query_args_str), 'ascii')
         query_args_hash = hashlib.sha224(query_args_byte).hexdigest()
-        return os.path.join(self.exp_dir_path, query_args_hash,
-                            'evaluate_queries.pkl')
+        _dir = os.path.join(self.exp_dir_path, query_args_hash)
+        os.makedirs(_dir, exist_ok=True)
+        return os.path.join(_dir, 'evaluate_queries.pkl')
 
     @property
     def checkpoint_path(self):
