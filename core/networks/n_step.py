@@ -96,7 +96,7 @@ class NstepDynamicsNetwork:
     def update(self, replay_buffer, batch_count, batch_size):
         loss = defaultdict(lambda: defaultdict(lambda: 0))
         for batch_i in range(batch_count):
-            batch = replay_buffer.sample(batch_size)
+            batch = replay_buffer.sample(batch_size, chunk_size=self.n_step)
             dones = torch.zeros(batch_size).bool().to(batch.obs.device)
 
             # init-obs is passed to all n-step dynamics

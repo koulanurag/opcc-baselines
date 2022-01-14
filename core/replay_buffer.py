@@ -15,47 +15,42 @@ class BatchOutput(NamedTuple):
 
 
 class ReplayBuffer:
-    def __init__(self, sequence_dataset, chunk_size, device='cpu',
-                 suppress_warnings: bool = False):
-        assert chunk_size >= 1, 'chunk size should be at least 1'
-        self.__chunk_size = chunk_size
-        self.dataset = np.array([{**seq, **{'step_count': len(seq['rewards'])}}
-                                 for seq in sequence_dataset
-                                 if len(seq['rewards']) > chunk_size])
-        # check for short sequences
-        if self.size == 0:
-            raise Exception('no sequence of chunk-size {}'.format(chunk_size))
-        elif 0 < self.size < len(sequence_dataset):
-            if not suppress_warnings:
-                warnings.warn(": only {} out of {} are considered for"
-                              " sampling".format(self.size,
-                                                 len(sequence_dataset)))
+    def __init__(self, sequence_dataset, device='cpu'):
+        self.dataset = {k: None for k in sequence_dataset[0]}
+        self.seq_lens = []
+        for seq in sequence_dataset:
+            self.seq_lens.append(len(seq['rewards']))
+            for k, v in seq.items():
+                if self.dataset[k] is not None:
+                    self.dataset[k] = np.concatenate((self.dataset[k], v),
+                                                     axis=0)
+                else:
+                    self.dataset[k] = v
 
-        self.__obs_size = self.dataset[0]['observations'][0].shape[0]
-        self.__action_size = self.dataset[0]['actions'][0].shape[0]
+        self.__obs_size = self.dataset['observations'][0].shape[0]
+        self.__action_size = self.dataset['actions'][0].shape[0]
         self.device = device
 
-    def sample(self, n: int) -> BatchOutput:
+    def sample(self, n: int, chunk_size: int) -> BatchOutput:
         assert n >= 1, 'batch size should be at least 1'
+        assert chunk_size >= 1, 'chunk size should be at least 1'
+
         # sample batch
-        obs = np.empty((n, self.chunk_size + 1, self.__obs_size))
-        action = np.empty((n, self.chunk_size, self.__action_size))
-        reward = np.empty((n, self.chunk_size))
-        terminal = np.empty((n, self.chunk_size))
-        timeout = np.empty((n, self.chunk_size))
-        seq_idxs = np.random.randint(low=0, high=self.size, size=n)
+        obs = np.empty((n, chunk_size + 1, self.__obs_size))
+        action = np.empty((n, chunk_size, self.__action_size))
+        reward = np.empty((n, chunk_size))
+        terminal = np.empty((n, chunk_size))
+        timeout = np.empty((n, chunk_size))
+        start_idxs = np.random.randint(low=0, high=self.size, size=n)
 
-        for batch_i in range(n):
-            seq = self.dataset[seq_idxs[batch_i]]
-            seq_size = seq['step_count']
-            start_i = np.random.randint(0,  seq_size - self.chunk_size)
-            end_i = start_i + self.chunk_size
+        for batch_i, start_idx in enumerate(start_idxs):
+            end_idx = start_idx + chunk_size
 
-            obs[batch_i, :] = seq['observations'][start_i:end_i + 1]
-            action[batch_i, :] = seq['actions'][start_i:end_i]
-            reward[batch_i, :] = seq['rewards'][start_i:end_i]
-            terminal[batch_i, :] = seq['terminals'][start_i:end_i]
-            timeout[batch_i, :] = seq['timeouts'][start_i:end_i]
+            obs[batch_i, :] = self.dataset['observations'][start_idx:end_idx + 1]
+            action[batch_i, :] = self.dataset['actions'][start_idx:end_idx]
+            reward[batch_i, :] = self.dataset['rewards'][start_idx:end_idx]
+            terminal[batch_i, :] = self.dataset['terminals'][start_idx:end_idx]
+            timeout[batch_i, :] = self.dataset['timeouts'][start_idx:end_idx]
 
         obs = torch.tensor(obs, device=self.device, dtype=torch.float)
         action = torch.tensor(action, device=self.device, dtype=torch.float)
@@ -67,8 +62,4 @@ class ReplayBuffer:
 
     @property
     def size(self):
-        return len(self.dataset)
-
-    @property
-    def chunk_size(self):
-        return self.__chunk_size
+        return len(self.dataset['rewards'])

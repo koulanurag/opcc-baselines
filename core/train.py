@@ -41,7 +41,6 @@ def train_dynamics(config: BaseConfig):
         _dataset = np.random.choice(dataset, size=len(dataset))
         # Todo: get bounds for each _dataset and optimize it
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset,
-                                                  config.args.n_step_model,
                                                   config.device)
 
     # setup network
