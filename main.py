@@ -166,7 +166,7 @@ if __name__ == '__main__':
      queries_args, uncertainty_args) = get_args()
 
     # d4rl setup
-    os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = '1'
+    os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = "1"
     os.environ['D4RL_DATASET_DIR'] = str(args.d4rl_dataset_dir)
     os.environ['POLICYBAZAAR_DIR'] = str(args.policybazaar_dir)
 
