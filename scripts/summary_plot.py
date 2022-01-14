@@ -11,23 +11,44 @@ if __name__ == '__main__':
     # combine data from multiple runs into a single dataframe
     api = wandb.Api()
     ensemble_data_df = []
-    for run in api.runs('koulanurag/cque-evaluations-uncertainty-test',
+    horizon_data_df = []
+    for run in api.runs('koulanurag/cque-baselines-1-uncertainty-test',
                         filters={'state': 'finished'}):
+        print(run)
         table_file = wandb.restore(run.summary.get('ensemble-data').get("path"),
                                    run_path='/'.join(run.path))
         table_str = table_file.read()
         table_dict = json.loads(table_str)
         query_df = pd.DataFrame(**table_dict)
 
+        query_df['env_name'] = [run.config['env_name'] for _ in range(len(query_df))]
+        query_df['dataset_name'] = [run.config['dataset_name'] for _ in range(len(query_df))]
+        query_df['n_step'] = [run.config['reset_n_step'] for _ in range(len(query_df))]
         query_df['dynamics_type'] = [run.config['dynamics_type'] for _ in range(len(query_df))]
         query_df['uncertainty_test_type'] = [run.config['uncertainty_test_type'] for _ in range(len(query_df))]
         query_df['deterministic'] = [run.config['deterministic'] for _ in range(len(query_df))]
         query_df['constant_prior'] = [run.config['constant_prior'] for _ in range(len(query_df))]
         ensemble_data_df.append(query_df)
 
-    data_df = pd.concat(ensemble_data_df)
-    uncertainty_test_types = np.unique(data_df['uncertainty_test_type'].values)
-    envs = np.unique(data_df['env_name'].values)
+        table_file = wandb.restore(run.summary.get('horizon-data').get("path"),
+                                   run_path='/'.join(run.path))
+        table_str = table_file.read()
+        table_dict = json.loads(table_str)
+        query_df = pd.DataFrame(**table_dict)
+
+        query_df['env_name'] = [run.config['env_name'] for _ in range(len(query_df))]
+        query_df['dataset_name'] = [run.config['dataset_name'] for _ in range(len(query_df))]
+        query_df['n_step'] = [run.config['reset_n_step'] for _ in range(len(query_df))]
+        query_df['dynamics_type'] = [run.config['dynamics_type'] for _ in range(len(query_df))]
+        query_df['uncertainty_test_type'] = [run.config['uncertainty_test_type'] for _ in range(len(query_df))]
+        query_df['deterministic'] = [run.config['deterministic'] for _ in range(len(query_df))]
+        query_df['constant_prior'] = [run.config['constant_prior'] for _ in range(len(query_df))]
+        horizon_data_df.append(query_df)
+
+    ensemble_data_df = pd.concat(ensemble_data_df)
+    horizon_data_df = pd.concat(horizon_data_df)
+    uncertainty_test_types = np.unique(ensemble_data_df['uncertainty_test_type'].values)
+    envs = np.unique(ensemble_data_df['env_name'].values)
 
     # overall fig
     for uncertainty_test_type in ['ensemble-voting']:
@@ -52,10 +73,17 @@ if __name__ == '__main__':
                 for _name, sub_plot_count in [('accuracy_vs_abstain', 4)]}
 
             if env == 'Overall':
-                type_data = data_df[data_df['uncertainty_test_type'] == uncertainty_test_type]
+                ensemble_type_data = ensemble_data_df[ensemble_data_df['uncertainty_test_type']
+                                                      == uncertainty_test_type]
+                horizon_type_data = horizon_data_df[horizon_data_df['uncertainty_test_type']
+                                                    == uncertainty_test_type]
             else:
-                type_data = data_df[(data_df['uncertainty_test_type'] == uncertainty_test_type) &
-                                    (data_df['env_name'] == env)]
+                ensemble_type_data = ensemble_data_df[(ensemble_data_df['uncertainty_test_type']
+                                                       == uncertainty_test_type) &
+                                                      (ensemble_data_df['env_name'] == env)]
+                horizon_type_data = horizon_data_df[(horizon_data_df['uncertainty_test_type'] ==
+                                                     uncertainty_test_type) &
+                                                    (horizon_data_df['env_name'] == env)]
 
             if uncertainty_test_type == 'ensemble-voting':
                 conf_attr_name = 'confidence_threshold'
@@ -65,23 +93,23 @@ if __name__ == '__main__':
             # ##################
             # get labels
             # #################
-            conf_thresholds = np.unique(type_data[conf_attr_name])
-            dynamics_types = sorted(np.unique(type_data['dynamics_type']))
-            dataset_names = sorted(np.unique(type_data['dataset_name']))
-            query_horizons = sorted(np.unique(type_data['horizon']))
-            ensemble_counts = sorted(np.unique(type_data['ensemble_count']))
-            deterministic_dynamics = sorted(np.unique(type_data['deterministic']))
-            constant_priors = sorted(np.unique(type_data['constant_prior']))
-            n_steps = sorted(np.unique(type_data['n_step']))
+            conf_thresholds = np.unique(ensemble_type_data[conf_attr_name])
+            dynamics_types = sorted(np.unique(ensemble_type_data['dynamics_type']))
+            dataset_names = sorted(np.unique(ensemble_type_data['dataset_name']))
+            query_horizons = sorted(np.unique(horizon_type_data['horizon']))
+            ensemble_counts = sorted(np.unique(ensemble_type_data['ensemble_count']))
+            deterministic_dynamics = sorted(np.unique(ensemble_type_data['deterministic']))
+            constant_priors = sorted(np.unique(ensemble_type_data['constant_prior']))
+            n_steps = sorted(np.unique(ensemble_type_data['n_step']))
 
-            for entity_name, entity_itr in \
-                    [('dataset_name', dataset_names),
-                     ('dynamics_type', dynamics_types),
-                     ('horizon', query_horizons),
-                     ('ensemble_count', ensemble_counts),
-                     ('deterministic', deterministic_dynamics),
-                     ('constant_prior', constant_priors),
-                     ('n_step', n_steps)]:
+            for entity_name, entity_itr, type_data in \
+                    [('dataset_name', dataset_names, ensemble_type_data),
+                     ('dynamics_type', dynamics_types, ensemble_type_data),
+                     ('horizon', query_horizons, horizon_type_data),
+                     ('ensemble_count', ensemble_counts, ensemble_type_data),
+                     ('deterministic', deterministic_dynamics, ensemble_type_data),
+                     ('constant_prior', constant_priors, ensemble_type_data),
+                     ('n_step', n_steps, ensemble_type_data)]:
 
                 entity_fig, entity_axs = uncertainty_plots['accuracy_vs_abstain'][entity_name]
 
@@ -143,9 +171,11 @@ if __name__ == '__main__':
                 legend(dynamics_types).set_visible(False)
             uncertainty_plots['accuracy_vs_abstain']['dataset_name'][1][0, 0].legend(
                 dataset_names).set_visible(False)
-            uncertainty_plots['accuracy_vs_abstain']['query_horizon'][1][0, 0].legend(
+            uncertainty_plots['accuracy_vs_abstain']['horizon'][1][0, 0].legend(
                 query_horizons).set_visible(False)
-            uncertainty_plots['accuracy_vs_abstain']['ensemble_size'][1][0, 0].legend(
+            # uncertainty_plots['accuracy_vs_abstain']['n_step'][1][0, 0].legend(
+            #     query_horizons).set_visible(False)
+            uncertainty_plots['accuracy_vs_abstain']['ensemble_count'][1][0, 0].legend(
                 ensemble_counts).set_visible(False)
             uncertainty_plots['accuracy_vs_abstain']['deterministic'][1][0, 0].legend(
                 labels=['deterministic' if x is True else 'stochastic' for x in
@@ -162,20 +192,17 @@ if __name__ == '__main__':
                 for (_fig, _axs), _name, _fig_title, ncol, bbox_to_anchor in [
                     (uncertainty_plots[_name]['dynamics_type'], 'dynamics',
                      "Comparison of different dynamics models", 1, (0.7, -0.1)),
-                    (uncertainty_plots[_name]['ensemble_mixture'], 'ensemble_mixture',
-                     "Comparison between Ensemble mixture(True/False) for query-evaluation", 1, (0.7, -0.1)),
                     (uncertainty_plots[_name]['dataset_name'], 'dataset',
                      "Comparison between Datasets", 1, (0.9, -0.1)),
-                    (uncertainty_plots[_name]['ensemble_size'], 'ensemble_size',
+                    (uncertainty_plots[_name]['ensemble_count'], 'ensemble_count',
                      "Comparison between Ensemble Sizes", 1, (0.9, -0.1)),
+                    (uncertainty_plots[_name]['n_step'], 'n_step',
+                     "Comparison between n-step models", 1, (0.9, -0.1)),
                     (uncertainty_plots[_name]['deterministic'], 'deterministic',
                      "Comparison between Deterministic(True)/Stochastic(False)  Model", 1, (0.9, -0.1)),
                     (uncertainty_plots[_name]['constant_prior'], 'constant_prior',
                      "Comparison between Constant Prior(True)/ No Constant Prior (False)  Model", 1, (0.9, -0.1)),
-                    (uncertainty_plots[_name]['domain_knowledge_termination'], 'domain_knowledge_termination',
-                     "Effect of Terminal Function ( True => Domain Given | False => Learn fun. approximator)", 1,
-                     (0.9, -0.1)),
-                    (uncertainty_plots[_name]['query_horizon'], 'horizon',
+                    (uncertainty_plots[_name]['horizon'], 'horizon',
                      "Comparison between different horizon lengths", 1, (0.9, -0.1))]:
 
                     _axs[0, 0].legend().set_visible(False)
