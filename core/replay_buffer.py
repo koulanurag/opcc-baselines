@@ -41,7 +41,8 @@ class ReplayBuffer:
         reward = np.empty((n, chunk_size))
         terminal = np.empty((n, chunk_size))
         timeout = np.empty((n, chunk_size))
-        start_idxs = np.random.randint(low=0, high=self.size, size=n)
+        start_idxs = np.random.randint(low=0, high=self.size - chunk_size,
+                                       size=n)
 
         for batch_i, start_idx in enumerate(start_idxs):
             end_idx = start_idx + chunk_size
