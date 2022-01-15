@@ -12,7 +12,7 @@ import wandb
 from core.config import BaseConfig
 from core.train import train_dynamics
 from core.utils import evaluate_queries
-from core.uncertainty import ensemble_voting
+from core.uncertainty import ensemble_voting as ev, confidence_interval as ci
 from wandb.plot import scatter
 
 
@@ -120,16 +120,14 @@ def get_args(arg_str: str = None):
                               help='restore model from wandb run')
     queries_args.add_argument('--wandb-dynamics-run-id', type=str,
                               help='wandb run id if restoring model')
-    queries_args.add_argument('--ensemble-mixture',
-                              action='store_true',
-                              help='if enabled, mixes ensemble models '
-                                   'for query evaluation  ')
+    queries_args.add_argument('--ensemble-mixture', action='store_true',
+                              help='if enabled, randomly select a models at'
+                                   ' each step of query evaluation  ')
     queries_args.add_argument('--eval-runs', type=int, default=1,
                               help='run count for each query evaluation')
     queries_args.add_argument('--reset-n-step', type=int, default=1,
                               help='run count for each query evaluation')
-    queries_args.add_argument('--eval-batch-size', type=int,
-                              default=128,
+    queries_args.add_argument('--eval-batch-size', type=int, default=128,
                               help='batch size for query evaluation')
     queries_args.add_argument('--clip-obs', action='store_true',
                               help='clip the observation space with bounds '
@@ -188,7 +186,7 @@ if __name__ == '__main__':
         if args.restore_dynamics_from_wandb:
             # get remote config from wandb
             assert args.wandb_dynamics_run_id is not None, \
-                'w&b id cannot be {}'.format(args.wandb_dynamics_run_id)
+                'wandb-dynamics-run-id cannot be None'
             remote_config = wandb.Api().run(args.wandb_dynamics_run_id).config
             assert args.env_name == remote_config['env_name']
 
@@ -281,9 +279,9 @@ if __name__ == '__main__':
         # restore query evaluation data
         if args.restore_query_eval_data_from_wandb:
             assert args.wandb_query_eval_data_run_id is not None, \
-                'w&b id cannot be {}'.format(args.wandb_query_eval_data_run_id)
+                'wandb-query-eval-data-run-id cannot be None'
             run = wandb.Api().run(args.wandb_query_eval_data_run_id)
-            remote_config = wandb.Api().run(args.wandb_query_eval_data_run_id).config
+            remote_config = run.config
             assert args.env_name == remote_config['env_name']
 
             # preserve original dynamics args
@@ -313,11 +311,28 @@ if __name__ == '__main__':
         # uncertainty-test
         # ################
 
-        ensemble_df, horizon_df = ensemble_voting(query_eval_df,
-                                                  ensemble_size_interval=10,
-                                                  num_ensemble=config.args.num_ensemble,
-                                                  confidence_interval=0.1)
+        if config.args.uncertainty_test == 'ensemble-voting':
+            ensemble_df, horizon_df = ev(query_eval_df,
+                                         ensemble_size_interval=10,
+                                         num_ensemble=config.args.num_ensemble,
+                                         confidence_interval=0.1)
+        elif config.args.uncertainty_test == 'paired-confidence-interval':
+            ensemble_df, horizon_df = ci(query_eval_df,
+                                         ensemble_size_interval=10,
+                                         num_ensemble=config.args.num_ensemble,
+                                         step=0.1,
+                                         paired=True)
+        elif config.args.uncertainty_test == 'unpaired-confidence-interval':
+            ensemble_df, horizon_df = ci(query_eval_df,
+                                         ensemble_size_interval=10,
+                                         num_ensemble=config.args.num_ensemble,
+                                         step=0.1,
+                                         paired=False)
+        else:
+            raise NotImplementedError(
+                '{} is not implemented'.format(config.args.uncetainty_test))
 
+        # save-data
         # setup for saving data on wandb
         if args.use_wandb:
             wandb.init(job_type=args.job,
@@ -353,12 +368,13 @@ if __name__ == '__main__':
                     ys['abstain_count'].append(_sub_df['abstain_count'].values.tolist())
 
                 for key, val in ys.items():
-                    wandb.log({'{}-{}'.format(category, key): wandb.plot.line_series(
+                    _plot = wandb.plot.line_series(
                         xs=conf_threshold,
                         ys=val,
                         keys=["{}:{}".format(category, e) for e in categories],
                         title='{}-{}'.format(category, key),
-                        xname="confidence-threshold")})
+                        xname="confidence-threshold")
+                    wandb.log({'{}-{}'.format(category, key): _plot})
 
     else:
         raise NotImplementedError()
