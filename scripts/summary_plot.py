@@ -12,7 +12,7 @@ if __name__ == '__main__':
     api = wandb.Api()
     ensemble_data_df = []
     horizon_data_df = []
-    for run in api.runs('koulanurag/cque-baselines-1-uncertainty-test',
+    for run in api.runs('koulanurag/cque-baselines-final-uncertainty-test',
                         filters={'state': 'finished'}):
         print(run)
         table_file = wandb.restore(run.summary.get('ensemble-data').get("path"),

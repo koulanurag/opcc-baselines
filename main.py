@@ -53,7 +53,7 @@ def get_args(arg_str: str = None):
                            help="directory to store results")
     # wandb setup
     wandb_args = parser.add_argument_group('wandb setup')
-    wandb_args.add_argument('--wandb-project-name', default='cque-baselines',
+    wandb_args.add_argument('--wandb-project-name', default='cque-baselines-final',
                             help='name of the wandb project')
     wandb_args.add_argument('--use-wandb', action='store_true',
                             help='use Weight and bias visualization lib')
