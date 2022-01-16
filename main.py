@@ -311,18 +311,18 @@ if __name__ == '__main__':
         # uncertainty-test
         # ################
 
-        if config.args.uncertainty_test == 'ensemble-voting':
+        if config.args.uncertainty_test_type == 'ensemble-voting':
             ensemble_df, horizon_df = ev(query_eval_df,
                                          ensemble_size_interval=10,
                                          num_ensemble=config.args.num_ensemble,
                                          confidence_interval=0.1)
-        elif config.args.uncertainty_test == 'paired-confidence-interval':
+        elif config.args.uncertainty_test_type == 'paired-confidence-interval':
             ensemble_df, horizon_df = ci(query_eval_df,
                                          ensemble_size_interval=10,
                                          num_ensemble=config.args.num_ensemble,
                                          step=0.1,
                                          paired=True)
-        elif config.args.uncertainty_test == 'unpaired-confidence-interval':
+        elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
             ensemble_df, horizon_df = ci(query_eval_df,
                                          ensemble_size_interval=10,
                                          num_ensemble=config.args.num_ensemble,
