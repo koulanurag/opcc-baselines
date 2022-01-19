@@ -352,17 +352,20 @@ if __name__ == '__main__':
             horizon_df_table = wandb.Table(dataframe=horizon_df)
             wandb.log({'ensemble-data': ensemble_df,
                        'horizon-data': horizon_df})
-
+            if args.uncertainty_test_type == 'ensemble-voting':
+                threshold_name = 'confidence_threshold'
+            else:
+                threshold_name = 'confidence_level'
             for category, _category_df in [('ensemble_count', ensemble_df),
                                            ('horizon', horizon_df)]:
                 categories = _category_df[category].unique()
-                conf_threshold = _category_df['confidence_threshold'].unique()
+                conf_threshold = _category_df[threshold_name].unique()
                 categories.sort()
                 conf_threshold.sort()
                 ys = {'accuracy': [], 'abstain': [], 'abstain_count': []}
                 for cat in categories:
                     _filter = _category_df[category] == cat
-                    _sub_df = _category_df[_filter].sort_values(by=['confidence_threshold'])
+                    _sub_df = _category_df[_filter].sort_values(by=[threshold_name])
                     ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
                     ys['abstain'].append(_sub_df['abstain'].values.tolist())
                     ys['abstain_count'].append(_sub_df['abstain_count'].values.tolist())
