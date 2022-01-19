@@ -67,7 +67,7 @@ def test_mc_return():
                           reset_n_step=2, device='cpu', runs=10,
                           ensemble_mixture=False, step_batch_size=128)
     target = query_batch['info']['return_a'][_filter]
-    assert (predict_1 == predict_2).all()
+    assert (np.round(predict_1, 1) == np.round(predict_2, 1)).all()
     assert np.mean(predict_1.mean(1) - target) < 2, \
         'error between prediction and target is large'
 
@@ -124,8 +124,8 @@ def test_ensemble_mixture(dynamics_type, constant_prior):
                           device='cpu', runs=10, ensemble_mixture=True,
                           step_batch_size=128, mixture_seed=2)
 
-    assert (predict_1 == predict_2).all()
-    assert not (predict_2 == predict_3).all()
+    assert (np.round(predict_1, 1) == np.round(predict_2, 1)).all()
+    assert not (np.round(predict_2, 1) == np.round(predict_3, 1)).all()
 
     target = query_batch['info']['return_a'][_filter]
     assert np.mean(predict_1.mean(1) - target) < 2, \
