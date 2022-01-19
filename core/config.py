@@ -38,7 +38,7 @@ class BaseConfig(object):
         self.action_size = env.action_space.shape[0]
         self.max_episode_steps = env.unwrapped.spec.max_episode_steps
 
-    def get_uniform_dynamics_network(self):
+    def get_uniform_dynamics_network(self) -> EnsembleDynamicsNetwork:
         return EnsembleDynamicsNetwork(env_name=self.args.env_name,
                                        dataset_name=self.args.dataset_name,
                                        num_ensemble=self.args.num_ensemble,
@@ -68,7 +68,7 @@ class BaseConfig(object):
         return ACTION_SCALE[self.__args.case][self.__args.env_name]
 
     @property
-    def network_path(self):
+    def network_path(self) -> os.path:
         return os.path.join(self.exp_dir_path, 'dynamics_network.p')
 
     def evaluate_queries_path(self, args, queries_args):
@@ -83,13 +83,13 @@ class BaseConfig(object):
         return os.path.join(_dir, 'evaluate_queries.pkl')
 
     @property
-    def checkpoint_path(self):
+    def checkpoint_path(self) -> os.path:
         return os.path.join(self.exp_dir_path, 'dynamics_checkpoint.p')
 
     @property
-    def logs_dir_path(self):
+    def logs_dir_path(self) -> os.path:
         return os.path.join(self.exp_dir_path, 'dynamics_logs')
 
     @property
-    def device(self):
+    def device(self) -> str:
         return self.args.device

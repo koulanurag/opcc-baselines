@@ -1,7 +1,8 @@
 import torch
 
 from .n_step import NstepDynamicsNetwork
-
+from gym.utils import seeding
+import numpy as np
 
 class EnsembleDynamicsNetwork:
     def __init__(self, env_name, dataset_name, num_ensemble, obs_size,
@@ -27,10 +28,16 @@ class EnsembleDynamicsNetwork:
                                         prior_scale=prior_scale)
             setattr(self, 'ensemble_{}'.format(i), _net)
 
-    def reset(self, horizon=1, batch_size=1, reset_n_step=None):
+    def reset(self, horizon=1, batch_size=1, reset_n_step=None,
+              ensemble_mixture=False):
+        self._ensemble_mixture = ensemble_mixture
         for i in range(self.num_ensemble):
             getattr(self, 'ensemble_{}'.format(i)).reset(horizon, batch_size,
                                                          reset_n_step)
+
+    def seed(self, n=None):
+        self._np_random, seed = seeding.np_random(n)
+        return [seed]
 
     def step(self, obs, action):
         assert len(obs.shape) == 3, '(batch , ensemble ,obs. size) required.'
@@ -38,8 +45,15 @@ class EnsembleDynamicsNetwork:
 
         next_obs, reward, done = None, None, None
 
+        if self._ensemble_mixture:
+            # Todo: with replacement eventually
+            ensemble_idxs = np.arange(0, self.num_ensemble)
+            self._np_random.shuffle(ensemble_idxs)
+        else:
+            ensemble_idxs = [_ for _ in range(self.num_ensemble)]
+
         for i in range(self.num_ensemble):
-            _name = 'ensemble_{}'.format(i)
+            _name = 'ensemble_{}'.format(ensemble_idxs[i])
             dynamics = getattr(self, _name)
 
             _next_obs, _reward, _done = dynamics.step(obs[:, i], action[:, i])
