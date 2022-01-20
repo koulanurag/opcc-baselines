@@ -31,9 +31,39 @@ class ReplayBuffer:
         self.__action_size = self.dataset['actions'][0].shape[0]
         self.device = device
 
+    # @profile
     def sample(self, n: int, chunk_size: int) -> BatchOutput:
+        if chunk_size == 1:
+            return self.sample_1_step(n, chunk_size)
+        else:
+            return self.sample_n_step(n, chunk_size)
+
+        return BatchOutput(obs, action, reward, terminal, timeout)
+
+    def sample_1_step(self, n, chunk_size):
         assert n >= 1, 'batch size should be at least 1'
-        assert chunk_size >= 1, 'chunk size should be at least 1'
+        assert chunk_size == 1, 'chunk size should be at least 1'
+
+        start_idxs = np.random.randint(low=0, high=self.size - chunk_size,
+                                       size=n)
+        obs = np.concatenate((np.expand_dims(self.dataset['observations'][start_idxs], axis=1),
+                              np.expand_dims(self.dataset['observations'][start_idxs + 1], axis=1)), axis=1)
+        action = np.expand_dims(self.dataset['actions'][start_idxs],axis=1)
+        reward = np.expand_dims(self.dataset['rewards'][start_idxs], axis=1)
+        terminal = np.expand_dims(self.dataset['terminals'][start_idxs], axis=1)
+        timeout = np.expand_dims(self.dataset['timeouts'][start_idxs], axis=1)
+
+        obs = torch.tensor(obs, device=self.device, dtype=torch.float)
+        action = torch.tensor(action, device=self.device, dtype=torch.float)
+        reward = torch.tensor(reward, device=self.device, dtype=torch.float)
+        terminal = torch.tensor(terminal, device=self.device, dtype=torch.float)
+        timeout = torch.tensor(timeout, device=self.device, dtype=torch.float)
+
+        return BatchOutput(obs, action, reward, terminal, timeout)
+
+    def sample_n_step(self, n: int, chunk_size: int) -> BatchOutput:
+        assert n >= 1, 'batch size should be at least 1'
+        assert chunk_size > 1, 'chunk size should be at least 1'
 
         # sample batch
         obs = np.empty((n, chunk_size + 1, self.__obs_size))
