@@ -16,16 +16,22 @@ class BatchOutput(NamedTuple):
 
 class ReplayBuffer:
     def __init__(self, sequence_dataset, device='cpu'):
-        self.dataset = {k: None for k in sequence_dataset[0]}
+        self.dataset = {k: [] for k in sequence_dataset[0]}
         self.seq_lens = []
         for seq in sequence_dataset:
             self.seq_lens.append(len(seq['rewards']))
             for k, v in seq.items():
-                if self.dataset[k] is not None:
-                    self.dataset[k] = np.concatenate((self.dataset[k], v),
-                                                     axis=0)
-                else:
-                    self.dataset[k] = v
+                # if self.dataset[k] is not None:
+                    # self.dataset[k] = np.concatenate((self.dataset[k], v),
+                    #                                  axis=0)
+                self.dataset[k].append(v)
+                # else:
+                #     self.dataset[k] = [v]
+        self.dataset['observations'] = np.concatenate(self.dataset['observations'],0)
+        self.dataset['actions'] = np.concatenate(self.dataset['actions'],0)
+        self.dataset['rewards'] = np.concatenate(self.dataset['rewards'],0)
+        self.dataset['timeouts'] = np.concatenate(self.dataset['timeouts'],0)
+        self.dataset['terminals'] = np.concatenate(self.dataset['terminals'],0)
 
         self.__obs_size = self.dataset['observations'][0].shape[0]
         self.__action_size = self.dataset['actions'][0].shape[0]

@@ -37,10 +37,14 @@ def train_dynamics(config: BaseConfig):
 
     replay_buffers = {}
     for ensemble_i in range(network.num_ensemble):
-        _dataset = np.random.choice(dataset, size=len(dataset))
+        print('ensemble-{}'.format(ensemble_i))
+        _seq_idxs = np.random.randint(0, len(dataset), size=len(dataset))
+        # _seq_idxs = np.random.choice(dataset, size=len(dataset))
+        _dataset = np.array(dataset)[_seq_idxs]
         # Todo: get bounds for each _dataset and optimize it
-        replay_buffers[ensemble_i] = ReplayBuffer(_dataset,
-                                                  config.device)
+        # import pdb; pdb.set_trace()
+        replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
+        # import sys; sys.exit(0)
 
     # setup network
     network.set_obs_bound(obs_min, obs_max)
