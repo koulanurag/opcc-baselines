@@ -103,13 +103,13 @@ class AgDynamicsNetwork(Base):
 
     def forward(self, obs, action):
         batch_size = obs.shape[0]
-        next_obs = torch.zeros((batch_size, self.obs_size)).to(obs.device)
+        next_obs = torch.zeros((batch_size, self.obs_size), device=obs.device)
+        one_hot = torch.zeros((batch_size, self.obs_size + 1), device=obs.device)  # create obs
+        one_hot[:, 0] = 1.0
         reward, mu, log_var = None, None, None
         for obs_i in range(self.obs_size + 1):  # add dimension for reward
 
             # create obs
-            one_hot = torch.zeros((batch_size, self.obs_size + 1)).to(obs.device)
-            one_hot[:, obs_i] = 1.0
             _obs = torch.cat((obs, next_obs.detach(), one_hot), dim=1)
 
             # ith dimension prediction
@@ -147,6 +147,11 @@ class AgDynamicsNetwork(Base):
                     reward = self.clip_reward(output)
                 else:
                     reward = output
+
+            # update one-hot
+            one_hot[:, obs_i] = 0.0
+            if obs_i < self.obs_size:
+                one_hot[:, obs_i + 1] = 1.0
 
         return next_obs, reward, mu, log_var
 
