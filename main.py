@@ -6,14 +6,15 @@ from pathlib import Path
 
 import cque
 import numpy as np
-import torch
 import pandas as pd
+import torch
 import wandb
+from wandb.plot import scatter
+
 from core.config import BaseConfig
 from core.train import train_dynamics
-from core.utils import evaluate_queries
 from core.uncertainty import ensemble_voting as ev, confidence_interval as ci
-from wandb.plot import scatter
+from core.utils import evaluate_queries
 
 
 def _seed(seed=0, cuda=False):
@@ -38,8 +39,7 @@ def get_args(arg_str: str = None):
     job_args.add_argument('--job', required=True,
                           choices=['train-dynamics',
                                    'evaluate-queries',
-                                   'uncertainty-test',
-                                   'uncertainty-test-plot'])
+                                   'uncertainty-test'])
     # paths
     path_args = parser.add_argument_group('paths setup')
     path_args.add_argument('--d4rl-dataset-dir', type=Path,
@@ -126,7 +126,7 @@ def get_args(arg_str: str = None):
     queries_args.add_argument('--eval-runs', type=int, default=1,
                               help='run count for each query evaluation')
     queries_args.add_argument('--reset-n-step', type=int, default=1,
-                              help='run count for each query evaluation')
+                              help='reset step for dynamics simulation')
     queries_args.add_argument('--eval-batch-size', type=int, default=128,
                               help='batch size for query evaluation')
     queries_args.add_argument('--clip-obs', action='store_true',
@@ -312,22 +312,22 @@ if __name__ == '__main__':
         # ################
 
         if config.args.uncertainty_test_type == 'ensemble-voting':
-            ensemble_df, horizon_df = ev(query_eval_df,
-                                         ensemble_size_interval=10,
-                                         num_ensemble=config.args.num_ensemble,
-                                         confidence_interval=0.1)
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ev(query_eval_df,
+                                                                  ensemble_size_interval=10,
+                                                                  num_ensemble=config.args.num_ensemble,
+                                                                  confidence_interval=0.1)
         elif config.args.uncertainty_test_type == 'paired-confidence-interval':
-            ensemble_df, horizon_df = ci(query_eval_df,
-                                         ensemble_size_interval=10,
-                                         num_ensemble=config.args.num_ensemble,
-                                         step=0.1,
-                                         paired=True)
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(query_eval_df,
+                                                                  ensemble_size_interval=10,
+                                                                  num_ensemble=config.args.num_ensemble,
+                                                                  step=0.1,
+                                                                  paired=True)
         elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
-            ensemble_df, horizon_df = ci(query_eval_df,
-                                         ensemble_size_interval=10,
-                                         num_ensemble=config.args.num_ensemble,
-                                         step=0.1,
-                                         paired=False)
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(query_eval_df,
+                                                                  ensemble_size_interval=10,
+                                                                  num_ensemble=config.args.num_ensemble,
+                                                                  step=0.1,
+                                                                  paired=False)
         else:
             raise NotImplementedError(
                 '{} is not implemented'.format(config.args.uncetainty_test))
@@ -351,7 +351,9 @@ if __name__ == '__main__':
             ensemble_df_table = wandb.Table(dataframe=ensemble_df)
             horizon_df_table = wandb.Table(dataframe=horizon_df)
             wandb.log({'ensemble-data': ensemble_df,
-                       'horizon-data': horizon_df})
+                       'horizon-data': horizon_df,
+                       'ensemble-rpp-data': embl_rpp_df,
+                       'horizon-rpp-data': hzn_rpp_df})
             if args.uncertainty_test_type == 'ensemble-voting':
                 threshold_name = 'confidence_threshold'
             else:

@@ -48,7 +48,12 @@ def _voting(pred_a, pred_b, target, conf_interval, dict_to_add=None):
         uncertainty_df.append(
             pd.DataFrame({_k: [_v] for _k, _v in _log.items()}))
 
-    return uncertainty_df
+    rpp = np.logical_and(np.expand_dims(pred_conf, 1).transpose() < np.expand_dims(pred_conf, 1),
+                         np.expand_dims(pred_label, 1).transpose() < np.expand_dims(pred_label, 1))
+    rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
+              **{'rpp': [rpp.mean()]}}
+    rpp_df = [pd.DataFrame(data=rpp_df)]
+    return uncertainty_df, rpp_df
 
 
 def ensemble_voting(eval_df, ensemble_size_interval: int, num_ensemble: int,
@@ -63,28 +68,41 @@ def ensemble_voting(eval_df, ensemble_size_interval: int, num_ensemble: int,
 
     # process for ensemble counts
     ensemble_uncertainty_df = []
+    ensemble_rpps_df = []
     for ensemble_count in np.arange(min(ensemble_size_interval, num_ensemble),
-                                    num_ensemble+1,
+                                    num_ensemble + 1,
                                     ensemble_size_interval):
-        ensemble_uncertainty_df += _voting(pred_a[:, :ensemble_count],
-                                           pred_b[:, :ensemble_count],
-                                           target,
-                                           confidence_interval,
-                                           {'ensemble_count': ensemble_count})
+        _df, _rpp_df = _voting(pred_a[:, :ensemble_count],
+                               pred_b[:, :ensemble_count],
+                               target,
+                               confidence_interval,
+                               {'ensemble_count': ensemble_count})
+
+        ensemble_rpps_df += _rpp_df
+        ensemble_uncertainty_df += _df
     ensemble_uncertainty_df = pd.concat(ensemble_uncertainty_df,
                                         ignore_index=True)
+    ensemble_rpps_df = pd.concat(ensemble_rpps_df,
+                                 ignore_index=True)
 
     # process for horizons
     horizons = eval_df['horizon'].values
     horizon_candidates = np.unique(horizons, axis=0)
     horizon_uncertainty_df = []
+    horizon_rpps_df = []
 
     for horizon in horizon_candidates:
         _filter = horizons == horizon
-        horizon_uncertainty_df += _voting(pred_a[_filter],
-                                          pred_b[_filter],
-                                          target[_filter],
-                                          confidence_interval,
-                                          {'horizon': horizon})
+        _df, _rpp_df = _voting(pred_a[_filter],
+                               pred_b[_filter],
+                               target[_filter],
+                               confidence_interval,
+                               {'horizon': horizon})
+        horizon_uncertainty_df += _df
+        horizon_rpps_df += _rpp_df
+
     horizon_uncertainty_df = pd.concat(horizon_uncertainty_df, ignore_index=True)
-    return ensemble_uncertainty_df, horizon_uncertainty_df
+    horizon_rpps_df = pd.concat(horizon_rpps_df, ignore_index=True)
+
+    return ensemble_uncertainty_df, horizon_uncertainty_df, \
+           ensemble_rpps_df, horizon_rpps_df
