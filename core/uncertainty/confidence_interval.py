@@ -131,8 +131,11 @@ def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
         if len(pred_label[pred_label != -1]) > 0:
             accuracy = (pred_label[pred_label != -1]
                         == target[pred_label != -1]).mean()
+            value_regret_risk = np.abs(target_return_a.values[accept_idx]
+                                       - target_return_b.values[accept_idx]).mean()
         else:
             accuracy = 1.0
+            value_regret_risk = 0
         abstain = len(pred_label[pred_label == -1]) / len(pred_label)
 
         # filter flags
@@ -162,8 +165,7 @@ def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
                 'false_negative': fn,
                 'true_negative': tn,
                 'confidence_level': conf_level,
-                'value_regret_risk': np.abs(target_return_a.values[accept_idx] -
-                                            target_return_b.values[accept_idx]).mean()}
+                'value_regret_risk': value_regret_risk}
         if dict_to_add is not None:
             _log = {**_log, **dict_to_add}
 

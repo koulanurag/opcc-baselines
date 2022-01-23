@@ -25,8 +25,12 @@ def _voting(pred_a, pred_b, target, target_return_a, target_return_b, conf_inter
                                           labels=[False, True]).ravel()
         if len(pred_label[accept_idx]) > 0:
             accuracy = (tp + tn) / (tn + fn + tp + fp)
+            value_regret_risk = np.abs(target_return_a.values[accept_idx]
+                   - target_return_b.values[accept_idx]).mean()
         else:
             accuracy = 1.0
+            value_regret_risk = 0
+
         abstain = len(pred_label[abstain_idx]) / len(pred_label)
 
         _log = {'abstain': abstain,
@@ -42,8 +46,7 @@ def _voting(pred_a, pred_b, target, target_return_a, target_return_b, conf_inter
                 'false_negative': fn,
                 'true_negative': tn,
                 'confidence_threshold': confidence,
-                'value_regret_risk': np.abs(target_return_a.values[accept_idx]
-                                            - target_return_b.values[accept_idx]).mean()}
+                'value_regret_risk': value_regret_risk}
         if dict_to_add is not None:
             _log = {**_log, **dict_to_add}
 
