@@ -3,7 +3,7 @@ from sklearn.metrics import confusion_matrix
 import pandas as pd
 
 
-def _voting(pred_a, pred_b, target, conf_interval, dict_to_add=None):
+def _voting(pred_a, pred_b, target, target_return_a, target_return_b, conf_interval, dict_to_add=None):
     uncertainty_df = []
     true_conf = (pred_a < pred_b).astype(int).mean(axis=1)
     false_conf = 1 - true_conf
@@ -41,7 +41,9 @@ def _voting(pred_a, pred_b, target, conf_interval, dict_to_add=None):
                 'false_positive': fp,
                 'false_negative': fn,
                 'true_negative': tn,
-                'confidence_threshold': confidence}
+                'confidence_threshold': confidence,
+                'value_regret_risk': np.abs(target_return_a.values[accept_idx]
+                                            - target_return_b.values[accept_idx]).mean()}
         if dict_to_add is not None:
             _log = {**_log, **dict_to_add}
 

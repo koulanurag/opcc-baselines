@@ -4,7 +4,8 @@ from sklearn.metrics import confusion_matrix
 import pandas as pd
 
 
-def paired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
+def paired_confidence_interval(pred_a, pred_b, target, target_return_a,
+                               target_return_b, conf_level_interval,
                                dict_to_add=None):
     """
     :param pred_a: numpy array of shape (batch, ensemble_count) having
@@ -16,6 +17,7 @@ def paired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
 
     uncertainty_df = []
     delta_pred = pred_a - pred_b
+    not_abstain_conf_level = np.array([None for _ in range(len(delta_pred))])
     for conf_level in np.arange(0, 1.01, conf_level_interval):
         res_low = np.zeros(len(pred_a))
         res_high = np.zeros(len(pred_a))
@@ -32,7 +34,7 @@ def paired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
         pred_label[res_low > 0] = 0  # false
         # abstain
         pred_label[np.logical_and(res_low < 0, (res_high > 0))] = -1
-
+        not_abstain_conf_level[pred_label != -1] = conf_level
         if len(pred_label[pred_label != -1]) > 0:
             accuracy = (pred_label[pred_label != -1]
                         == target[pred_label != -1]).mean()
@@ -60,21 +62,28 @@ def paired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
                 'false_positive': fp,
                 'false_negative': fn,
                 'true_negative': tn,
-                'confidence_level': conf_level}
+                'confidence_level': conf_level,
+                'value_regret_risk': np.abs(target_return_a.values[accept_idx] -
+                                            target_return_b.values[accept_idx]).mean()}
         if dict_to_add is not None:
             _log = {**_log, **dict_to_add}
 
         uncertainty_df.append(
             pd.DataFrame({_k: [_v] for _k, _v in _log.items()}))
 
+    pred_label = delta_pred < 0
+    rpp = np.logical_and(
+        np.expand_dims(not_abstain_conf_level, 1).transpose() < np.expand_dims(not_abstain_conf_level, 1),
+        np.expand_dims(pred_label, 1).transpose() < np.expand_dims(pred_label, 1))
     rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
-              **{'rpp': [-1]}}
+              **{'rpp': [rpp.mean()]}}
     rpp_df = [pd.DataFrame(data=rpp_df)]
 
     return uncertainty_df, rpp_df
 
 
-def unpaired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
+def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
+                                 target_return_b, conf_level_interval,
                                  dict_to_add=None):
     """
     :param pred_a: numpy array of shape (batch, ensemble_count) having
@@ -85,6 +94,13 @@ def unpaired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
     """
 
     uncertainty_df = []
+    not_abstain_conf_level = np.array([None for _ in range(len(pred_a))])
+
+    base_res_low_a = np.array([None for _ in range(len(pred_a))])
+    base_res_high_a = np.array([None for _ in range(len(pred_a))])
+    base_res_low_b = np.array([None for _ in range(len(pred_a))])
+    base_res_high_b = np.array([None for _ in range(len(pred_a))])
+
     for conf_level in np.arange(0, 1.01, conf_level_interval):
         res_low_a = np.zeros(len(pred_a))
         res_high_a = np.zeros(len(pred_a))
@@ -123,6 +139,12 @@ def unpaired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
         accept_idx = pred_label != -1
         abstain_idx = pred_label == -1
 
+        not_abstain_conf_level[accept_idx] = conf_level
+        base_res_low_a[accept_idx] = res_low_a[accept_idx]
+        base_res_high_a[accept_idx] = res_high_a[accept_idx]
+        base_res_low_b[accept_idx] = res_low_b[accept_idx]
+        base_res_high_b[accept_idx] = res_high_b[accept_idx]
+
         tn, fp, fn, tp = confusion_matrix(target[accept_idx],
                                           pred_label[accept_idx],
                                           labels=[False, True]).ravel()
@@ -139,17 +161,25 @@ def unpaired_confidence_interval(pred_a, pred_b, target, conf_level_interval,
                 'false_positive': fp,
                 'false_negative': fn,
                 'true_negative': tn,
-                'confidence_level': conf_level}
+                'confidence_level': conf_level,
+                'value_regret_risk': np.abs(target_return_a.values[accept_idx] -
+                                            target_return_b.values[accept_idx]).mean()}
         if dict_to_add is not None:
             _log = {**_log, **dict_to_add}
 
         uncertainty_df.append(
             pd.DataFrame({_k: [_v] for _k, _v in _log.items()}))
 
-    rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
-              **{'rpp': [-1]}}
-    rpp_df = [pd.DataFrame(data=rpp_df)]
+    pred_label = np.array([None for _ in range(len(pred_a))])
+    pred_label[base_res_high_a < base_res_low_b] = 1  # true
+    pred_label[base_res_low_a > base_res_high_b] = 0  # false
 
+    rpp = np.logical_and(
+        np.expand_dims(not_abstain_conf_level, 1).transpose() < np.expand_dims(not_abstain_conf_level, 1),
+        np.expand_dims(pred_label, 1).transpose() < np.expand_dims(pred_label, 1))
+    rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
+              **{'rpp': [rpp.mean()]}}
+    rpp_df = [pd.DataFrame(data=rpp_df)]
     return uncertainty_df, rpp_df
 
 
@@ -172,12 +202,18 @@ def confidence_interval(eval_df, ensemble_size_interval: int, num_ensemble: int,
         if paired:
             _df, _rpp_df = paired_confidence_interval(pred_a[:, :ensemble_count],
                                                       pred_b[:, :ensemble_count],
-                                                      target, step,
+                                                      target,
+                                                      eval_df['return_a'],
+                                                      eval_df['return_b'],
+                                                      step,
                                                       {'ensemble_count': ensemble_count})
         else:
             _df, _rpp_df = unpaired_confidence_interval(pred_a[:, :ensemble_count],
                                                         pred_b[:, :ensemble_count],
-                                                        target, step,
+                                                        target,
+                                                        eval_df['return_a'],
+                                                        eval_df['return_b'],
+                                                        step,
                                                         {'ensemble_count': ensemble_count})
         ensemble_uncertainty_df += _df
         ensemble_rpps_df += _rpp_df
@@ -199,12 +235,16 @@ def confidence_interval(eval_df, ensemble_size_interval: int, num_ensemble: int,
             _df, _rpp_df = paired_confidence_interval(pred_a[_filter],
                                                       pred_b[_filter],
                                                       target[_filter],
+                                                      eval_df['return_a'][_filter],
+                                                      eval_df['return_b'][_filter],
                                                       step,
                                                       {'horizon': horizon})
         else:
             _df, _rpp_df = unpaired_confidence_interval(pred_a[_filter],
                                                         pred_b[_filter],
                                                         target[_filter],
+                                                        eval_df['return_a'][_filter],
+                                                        eval_df['return_b'][_filter],
                                                         step,
                                                         {'horizon': horizon})
         horizon_uncertainty_df += _df
