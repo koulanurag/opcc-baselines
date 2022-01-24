@@ -80,6 +80,8 @@ def ensemble_voting(eval_df, ensemble_size_interval: int, num_ensemble: int,
         _df, _rpp_df = _voting(pred_a[:, :ensemble_count],
                                pred_b[:, :ensemble_count],
                                target,
+                               eval_df['return_a'],
+                               eval_df['return_b'],
                                confidence_interval,
                                {'ensemble_count': ensemble_count})
 
@@ -101,6 +103,8 @@ def ensemble_voting(eval_df, ensemble_size_interval: int, num_ensemble: int,
         _df, _rpp_df = _voting(pred_a[_filter],
                                pred_b[_filter],
                                target[_filter],
+                               eval_df['return_a'][_filter],
+                               eval_df['return_b'][_filter],
                                confidence_interval,
                                {'horizon': horizon})
         horizon_uncertainty_df += _df
