@@ -140,8 +140,8 @@ def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
         if len(pred_label[pred_label != -1]) > 0:
             accuracy = (pred_label[pred_label != -1]
                         == target[pred_label != -1]).mean()
-            value_regret_risk = np.abs(target_return_a.values[accept_idx]
-                                       - target_return_b.values[accept_idx]).mean()
+            value_regret_risk = np.abs(target_return_a.values[pred_label != -1]
+                                       - target_return_b.values[pred_label != -1]).mean()
         else:
             accuracy = 1.0
             value_regret_risk = 0
