@@ -18,6 +18,9 @@ def paired_confidence_interval(pred_a, pred_b, target, target_return_a,
     uncertainty_df = []
     delta_pred = pred_a - pred_b
     not_abstain_conf_level = np.array([None for _ in range(len(delta_pred))])
+    base_res_low = np.array([None for _ in range(len(pred_a))])
+    base_res_high = np.array([None for _ in range(len(pred_a))])
+
     for conf_level in np.arange(0, 1.01, conf_level_interval):
         res_low = np.zeros(len(pred_a))
         res_high = np.zeros(len(pred_a))
@@ -46,6 +49,9 @@ def paired_confidence_interval(pred_a, pred_b, target, target_return_a,
         accept_idx = pred_label != -1
         abstain_idx = pred_label == -1
 
+        base_res_low[accept_idx] = res_low[accept_idx]
+        base_res_high[accept_idx] = res_high[accept_idx]
+
         tn, fp, fn, tp = confusion_matrix(target[accept_idx],
                                           pred_label[accept_idx],
                                           labels=[False, True]).ravel()
@@ -71,7 +77,10 @@ def paired_confidence_interval(pred_a, pred_b, target, target_return_a,
         uncertainty_df.append(
             pd.DataFrame({_k: [_v] for _k, _v in _log.items()}))
 
-    pred_label = delta_pred < 0
+    pred_label = np.array([None for _ in range(len(pred_a))])
+    pred_label[base_res_high < 0] = 1  # true
+    pred_label[base_res_low > 0] = 0  # false
+
     rpp = np.logical_and(
         np.expand_dims(not_abstain_conf_level, 1).transpose() < np.expand_dims(not_abstain_conf_level, 1),
         np.expand_dims(pred_label, 1).transpose() < np.expand_dims(pred_label, 1))
