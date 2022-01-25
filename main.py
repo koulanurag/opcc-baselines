@@ -276,6 +276,12 @@ if __name__ == '__main__':
 
     elif args.job == 'uncertainty-test':
         query_eval_df = None
+        if args.use_wandb:
+            wandb.init(job_type=args.job,
+                       dir=args.wandb_dir,
+                       project=args.wandb_project_name + '-' + args.job,
+                       settings=wandb.Settings(start_method="thread"))
+
         # restore query evaluation data
         if args.restore_query_eval_data_from_wandb:
             assert args.wandb_query_eval_data_run_id is not None, \
@@ -335,10 +341,6 @@ if __name__ == '__main__':
         # save-data
         # setup for saving data on wandb
         if args.use_wandb:
-            wandb.init(job_type=args.job,
-                       dir=args.wandb_dir,
-                       project=args.wandb_project_name + '-' + args.job,
-                       settings=wandb.Settings(start_method="thread"))
             wandb.config.update({x.dest: vars(args)[x.dest]
                                  for x in job_args._group_actions})
             wandb.config.update({x.dest: vars(args)[x.dest]
