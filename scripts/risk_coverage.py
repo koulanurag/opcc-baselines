@@ -52,31 +52,35 @@ def row_plot(row_data, rpp_row_data, row_axs, col_key_values, conf_attr_name, da
         else:
             risk = value_regret_risk_mean_data
 
-        coverage = coverage_mean_data
-        c_r_data = np.array(sorted([(coverage[i], risk[i]) for i in range(len(risk))]))
-        risk = c_r_data[:, 1].tolist()
-        coverage = c_r_data[:, 0].tolist()
+        try:
+            coverage = coverage_mean_data
+            c_r_data = np.array(sorted([(coverage[i], risk[i]) for i in range(len(risk))]))
+            risk = c_r_data[:, 1].tolist()
+            coverage = c_r_data[:, 0].tolist()
 
-        risk = [0] + risk
-        coverage = [0] + coverage
+            risk = [0] + risk
+            coverage = [0] + coverage
 
-        auc = metrics.auc(coverage, risk)
-        row_axs[_i].plot(coverage, risk)
+            auc = metrics.auc(coverage, risk)
+            row_axs[_i].plot(coverage, risk)
 
-        coverage_interval = 0.05
-        bins = [x for x in np.arange(0, 1.0001, coverage_interval)]
-        coverage_resolution_score = np.unique(np.digitize(coverage, bins)).size / len(bins)
-        row_axs[_i].text(0.5, 0.5, 'auc:{:.2f} \n coverage score:{:.2f} \n rpp : {:.2f}'.format(auc,
-                                                                                                coverage_resolution_score,
-                                                                                                rpp_row_data[(
-                                                                                                                         rpp_row_data[
-                                                                                                                             'dataset_name'] == dataset_name) & (
-                                                                                                                         rpp_row_data[
-                                                                                                                             col_key] == val)][
-                                                                                                    'rpp'].values.mean()),
-                         horizontalalignment='center',
-                         verticalalignment='center',
-                         transform=row_axs[_i].transAxes)
+            coverage_interval = 0.05
+            bins = [x for x in np.arange(0, 1.0001, coverage_interval)]
+            coverage_resolution_score = np.unique(np.digitize(coverage, bins)).size / len(bins)
+            row_axs[_i].text(0.5, 0.5, 'auc:{:.2f} \n coverage score:{:.2f} \n rpp : {:.2f}'.format(auc,
+                                                                                                    coverage_resolution_score,
+                                                                                                    rpp_row_data[(
+                                                                                                                             rpp_row_data[
+                                                                                                                                 'dataset_name'] == dataset_name) & (
+                                                                                                                             rpp_row_data[
+                                                                                                                                 col_key] == val)][
+                                                                                                        'rpp'].values.mean()),
+                             horizontalalignment='center',
+                             verticalalignment='center',
+                             transform=row_axs[_i].transAxes)
+        except:
+            print('no data')
+            pass
 
 
 def plot(data_df, rpp_df, dataset_names, fig, axs, num_cols, env,
@@ -217,57 +221,60 @@ def main():
     horizon_rpp_df = []
     run_count = 0
     for run in api.runs('koulanurag/cque-baselines-final-uncertainty-test',
-                        filters={'state': 'finished', 'config.env_name': 'Hopper-v2',
+                        filters={'state': 'finished', 'config.env_name': 'd4rl:maze2d-open-v0',
                                  }):
-        run_count += 1
-        print(run_count, run)
-        table_file = wandb.restore(run.summary.get('ensemble-data').get("path"),
-                                   run_path='/'.join(run.path))
-        table_str = table_file.read()
-        table_dict = json.loads(table_str)
-        query_df = pd.DataFrame(**table_dict)
-        rpp_df = pd.DataFrame(**json.loads((wandb.restore(run.summary.get('ensemble-rpp-data').get("path"),
-                                                          run_path='/'.join(run.path))).read()))
+        try:
+            run_count += 1
+            print(run_count, run)
+            table_file = wandb.restore(run.summary.get('ensemble-data').get("path"),
+                                       run_path='/'.join(run.path))
+            table_str = table_file.read()
+            table_dict = json.loads(table_str)
+            query_df = pd.DataFrame(**table_dict)
+            rpp_df = pd.DataFrame(**json.loads((wandb.restore(run.summary.get('ensemble-rpp-data').get("path"),
+                                                              run_path='/'.join(run.path))).read()))
 
-        for _df in [query_df, rpp_df]:
-            _df['env_name'] = [run.config['env_name'] for _ in range(len(_df))]
-            _df['dataset_name'] = [run.config['dataset_name'] for _ in range(len(_df))]
-            _df['dynamics_type'] = [run.config['dynamics_type'] for _ in range(len(_df))]
-            _df['uncertainty_test_type'] = [run.config['uncertainty_test_type'] for _ in range(len(_df))]
-            _df['deterministic'] = ['deterministic' if run.config['deterministic'] else 'stochastic'
-                                    for _ in range(len(_df))]
-            _df['constant_prior'] = ['constant prior' if run.config['constant_prior'] else 'no constant prior'
-                                     for _ in range(len(_df))]
-            _df['ensemble_mixture'] = ['mixture' if run.config['ensemble_mixture'] else 'no mixture'
-                                       for _ in range(len(_df))]
-        ensemble_data_df.append(query_df)
-        ensemble_rpp_df.append(rpp_df)
+            for _df in [query_df, rpp_df]:
+                _df['env_name'] = [run.config['env_name'] for _ in range(len(_df))]
+                _df['dataset_name'] = [run.config['dataset_name'] for _ in range(len(_df))]
+                _df['dynamics_type'] = [run.config['dynamics_type'] for _ in range(len(_df))]
+                _df['uncertainty_test_type'] = [run.config['uncertainty_test_type'] for _ in range(len(_df))]
+                _df['deterministic'] = ['deterministic' if run.config['deterministic'] else 'stochastic'
+                                        for _ in range(len(_df))]
+                _df['constant_prior'] = ['constant prior' if run.config['constant_prior'] else 'no constant prior'
+                                         for _ in range(len(_df))]
+                _df['ensemble_mixture'] = ['mixture' if run.config['ensemble_mixture'] else 'no mixture'
+                                           for _ in range(len(_df))]
+            ensemble_data_df.append(query_df)
+            ensemble_rpp_df.append(rpp_df)
 
-        table_file = wandb.restore(run.summary.get('horizon-data').get("path"),
-                                   run_path='/'.join(run.path))
-        table_str = table_file.read()
-        table_dict = json.loads(table_str)
-        query_df = pd.DataFrame(**table_dict)
-        rpp_df = pd.DataFrame(**json.loads((wandb.restore(run.summary.get('horizon-rpp-data').get("path"),
-                                                          run_path='/'.join(run.path))).read()))
-        for _df in [query_df, rpp_df]:
-            _df['env_name'] = [run.config['env_name']
-                               for _ in range(len(_df))]
-            _df['dataset_name'] = [run.config['dataset_name']
+            table_file = wandb.restore(run.summary.get('horizon-data').get("path"),
+                                       run_path='/'.join(run.path))
+            table_str = table_file.read()
+            table_dict = json.loads(table_str)
+            query_df = pd.DataFrame(**table_dict)
+            rpp_df = pd.DataFrame(**json.loads((wandb.restore(run.summary.get('horizon-rpp-data').get("path"),
+                                                              run_path='/'.join(run.path))).read()))
+            for _df in [query_df, rpp_df]:
+                _df['env_name'] = [run.config['env_name']
                                    for _ in range(len(_df))]
-            _df['dynamics_type'] = [run.config['dynamics_type']
-                                    for _ in range(len(_df))]
-            _df['uncertainty_test_type'] = [run.config['uncertainty_test_type']
-                                            for _ in range(len(_df))]
-            _df['deterministic'] = ['deterministic' if run.config['deterministic'] else 'stochastic'
-                                    for _ in range(len(_df))]
-            _df['constant_prior'] = ['constant prior' if run.config['constant_prior'] else 'no constant prior'
-                                     for _ in range(len(_df))]
-            _df['ensemble_mixture'] = ['mixture' if run.config['ensemble_mixture'] else 'no mixture'
+                _df['dataset_name'] = [run.config['dataset_name']
                                        for _ in range(len(_df))]
+                _df['dynamics_type'] = [run.config['dynamics_type']
+                                        for _ in range(len(_df))]
+                _df['uncertainty_test_type'] = [run.config['uncertainty_test_type']
+                                                for _ in range(len(_df))]
+                _df['deterministic'] = ['deterministic' if run.config['deterministic'] else 'stochastic'
+                                        for _ in range(len(_df))]
+                _df['constant_prior'] = ['constant prior' if run.config['constant_prior'] else 'no constant prior'
+                                         for _ in range(len(_df))]
+                _df['ensemble_mixture'] = ['mixture' if run.config['ensemble_mixture'] else 'no mixture'
+                                           for _ in range(len(_df))]
 
-        horizon_data_df.append(query_df)
-        horizon_rpp_df.append(rpp_df)
+            horizon_data_df.append(query_df)
+            horizon_rpp_df.append(rpp_df)
+        except:
+            print("ISSUE:", run.path)
 
     ensemble_data_df = pd.concat(ensemble_data_df)
     horizon_data_df = pd.concat(horizon_data_df)
