@@ -121,7 +121,7 @@ def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
                 conf_level,
                 len(pred_a[idx]) - 1,
                 np.mean(pred_a[idx]),
-                scipy.stats.sem(pred_a[idx] + 1e-3))
+                scipy.stats.sem(pred_a[idx])+1e-3)
 
             res_low_a[idx], res_high_a[idx] = a_conf_interval
 
@@ -129,7 +129,7 @@ def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
                 conf_level,
                 len(pred_b[idx]) - 1,
                 np.mean(pred_b[idx]),
-                scipy.stats.sem(pred_b[idx] + 1e-3))
+                scipy.stats.sem(pred_b[idx]) + 1e-3)
 
             res_low_b[idx], res_high_b[idx] = b_conf_interval
 
@@ -181,15 +181,21 @@ def unpaired_confidence_interval(pred_a, pred_b, target, target_return_a,
         uncertainty_df.append(
             pd.DataFrame({_k: [_v] for _k, _v in _log.items()}))
 
-    pred_label = np.array([None for _ in range(len(pred_a))])
-    pred_label[base_res_high_a < base_res_low_b] = 1  # true
-    pred_label[base_res_low_a > base_res_high_b] = 0  # false
+    if not all([_ is None for _ in np.array(base_res_low_a)]):
+        pred_label = np.array([None for _ in range(len(pred_a))])
+        pred_label[base_res_high_a < base_res_low_b] = 1  # true
+        pred_label[base_res_low_a > base_res_high_b] = 0  # false
 
-    rpp = np.logical_and(
-        np.expand_dims(not_abstain_conf_level, 1).transpose() < np.expand_dims(not_abstain_conf_level, 1),
-        np.expand_dims(pred_label, 1).transpose() < np.expand_dims(pred_label, 1))
-    rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
-              **{'rpp': [rpp.mean()]}}
+        rpp = np.logical_and(np.expand_dims(not_abstain_conf_level,
+                                            1).transpose()
+                             < np.expand_dims(not_abstain_conf_level, 1),
+                             np.expand_dims(pred_label, 1).transpose()
+                             < np.expand_dims(pred_label, 1))
+        rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
+                  **{'rpp': [rpp.mean()]}}
+    else:
+        rpp_df = {**{k: [v] for k, v in dict_to_add.items()},
+                  **{'rpp': [1e-5]}}
     rpp_df = [pd.DataFrame(data=rpp_df)]
     return uncertainty_df, rpp_df
 
