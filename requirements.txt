@@ -1,3 +1,4 @@
 rliable
 pandas
 wandb
+sklearn
