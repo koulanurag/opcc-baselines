@@ -4,14 +4,13 @@ import torch.nn as nn
 
 class Base(nn.Module):
     def __init__(self, env_name, dataset_name, obs_size, action_size,
-                 deterministic, constant_prior, prior_scale):
+                 deterministic, prior_scale):
         super().__init__()
         self._env_name = env_name
         self._dataset_name = dataset_name
         self._obs_size = obs_size
         self._action_size = action_size
         self._deterministic = deterministic
-        self._constant_prior = constant_prior
         self._prior_scale = prior_scale
         self._clip_obs = False
         self._clip_reward = False
@@ -41,10 +40,6 @@ class Base(nn.Module):
     @property
     def deterministic(self):
         return self._deterministic
-
-    @property
-    def constant_prior(self):
-        return self._constant_prior
 
     @property
     def prior_scale(self):

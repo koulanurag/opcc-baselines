@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 import pandas as pd
-import policybazaar
 import torch
+import opcc
 from rliable import metrics
 
 
@@ -28,8 +28,8 @@ def evaluate_queries(queries, network, runs, batch_size, reset_n_step,
     predict_df = pd.DataFrame()
     for (policy_a_id, policy_b_id), query_batch in queries.items():
 
-        policy_a, _ = policybazaar.get_policy(*policy_a_id)
-        policy_b, _ = policybazaar.get_policy(*policy_b_id)
+        policy_a, _ = opcc.get_policy(*policy_a_id)
+        policy_b, _ = opcc.get_policy(*policy_b_id)
         policy_a = policy_a.to(device)
         policy_b = policy_b.to(device)
 
@@ -145,7 +145,8 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
             step_obs, reward, done = network.step(step_obs, step_action)
             assert len(step_obs.shape) == 3, 'expected (batch, ensemble, obs)'
             step_action = policy(step_obs)
-            assert len(step_action.shape) == 3, 'expected (batch, ensemble,action)'
+            assert len(
+                step_action.shape) == 3, 'expected (batch, ensemble,action)'
 
             # move to cpu for saving cuda memory
             reward = reward.cpu().detach().numpy()

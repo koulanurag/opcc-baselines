@@ -4,7 +4,7 @@ import os
 import random
 from pathlib import Path
 
-import cque
+import opcc
 import numpy as np
 import pandas as pd
 import torch
@@ -13,7 +13,8 @@ from wandb.plot import scatter
 
 from core.config import BaseConfig
 from core.train import train_dynamics
-from core.uncertainty import ensemble_voting as ev, confidence_interval as ci
+from core.uncertainty import ensemble_voting as ev
+from core.uncertainty import confidence_interval as ci
 from core.utils import evaluate_queries
 
 
@@ -28,7 +29,7 @@ def _seed(seed=0, cuda=False):
 def get_args(arg_str: str = None):
     # gather arguments
     parser = argparse.ArgumentParser(prog='main.py',
-                                     description='cque-baselines',
+                                     description='opcc-baselines',
                                      formatter_class=argparse.
                                      ArgumentDefaultsHelpFormatter)
 
@@ -45,15 +46,13 @@ def get_args(arg_str: str = None):
     path_args.add_argument('--d4rl-dataset-dir', type=Path,
                            default=Path(os.path.join('~/.d4rl', 'datasets')),
                            help="directory to store d4rl datasets")
-    path_args.add_argument('--policybazaar-dir', type=Path,
-                           default=Path(os.path.join('~/.policybazaar')),
-                           help="directory to store policybazaar data")
     path_args.add_argument('--result-dir', type=Path,
                            default=Path(os.path.join(os.getcwd(), 'results')),
                            help="directory to store results")
     # wandb setup
     wandb_args = parser.add_argument_group('wandb setup')
-    wandb_args.add_argument('--wandb-project-name', default='cque-baselines-final',
+    wandb_args.add_argument('--wandb-project-name',
+                            default='opcc-baselines',
                             help='name of the wandb project')
     wandb_args.add_argument('--use-wandb', action='store_true',
                             help='use Weight and bias visualization lib')
@@ -62,8 +61,8 @@ def get_args(arg_str: str = None):
 
     # dynamics args
     dynamics_args = parser.add_argument_group('args for training dynamics')
-    job_args.add_argument('--env-name', default='HalfCheetah-v2',
-                          help='name of the environment')
+    dynamics_args.add_argument('--env-name', default='HalfCheetah-v2',
+                               help='name of the environment')
     dynamics_args.add_argument('--dataset-name', default='random',
                                help='name of the dataset')
     dynamics_args.add_argument('--dynamics-type', default='feed-forward',
@@ -72,10 +71,6 @@ def get_args(arg_str: str = None):
     dynamics_args.add_argument('--deterministic', action='store_true',
                                help='if True, we use deterministic model '
                                     'otherwise stochastic')
-    dynamics_args.add_argument('--use-dropout', action='store_true',
-                               help='uses dropout within models')
-    dynamics_args.add_argument('--n-step-model', default=1, type=int,
-                               help='n-step predictor for model ')
     dynamics_args.add_argument('--dynamics-seed', default=0, type=int,
                                help='seed for training dynamics ')
     dynamics_args.add_argument('--log-interval', default=1, type=int,
@@ -107,11 +102,8 @@ def get_args(arg_str: str = None):
                                help='normalizes the action space ')
     dynamics_args.add_argument('--num-ensemble', default=1, type=int,
                                help='number of dynamics for ensemble ')
-    dynamics_args.add_argument('--constant-prior', action='store_true',
-                               help='adds a constant prior to each model ')
     dynamics_args.add_argument('--constant-prior-scale', type=float,
-                               default=1,
-                               help='scale for constant priors')
+                               default=0, help='scale for constant priors')
 
     # queries evaluation args
     queries_args = parser.add_argument_group('args for evaluating queries')
@@ -125,19 +117,17 @@ def get_args(arg_str: str = None):
                                    ' each step of query evaluation  ')
     queries_args.add_argument('--eval-runs', type=int, default=1,
                               help='run count for each query evaluation')
-    queries_args.add_argument('--reset-n-step', type=int, default=1,
-                              help='reset step for dynamics simulation')
     queries_args.add_argument('--eval-batch-size', type=int, default=128,
                               help='batch size for query evaluation')
     queries_args.add_argument('--clip-obs', action='store_true',
-                              help='clip the observation space with bounds '
-                                   'for query evaluation')
+                              help='clip the observation space with bounds for'
+                                   ' query evaluation')
     queries_args.add_argument('--clip-reward', action='store_true',
                               help='clip the reward with dataset bounds'
                                    ' for query evaluation')
 
     # uncertainty-test arguments
-    uncertain_args = parser.add_argument_group('args for  uncertainty-test')
+    uncertain_args = parser.add_argument_group('args for uncertainty-test')
     uncertain_args.add_argument('--uncertainty-test-type',
                                 default='ensemble-voting',
                                 choices=['paired-confidence-interval',
@@ -146,7 +136,7 @@ def get_args(arg_str: str = None):
                                 help='type of uncertainty test')
     uncertain_args.add_argument('--restore-query-eval-data-from-wandb',
                                 action='store_true',
-                                help='restore query evaluation data from wandb')
+                                help='get query evaluation data from wandb')
     uncertain_args.add_argument('--wandb-query-eval-data-run-id', type=str,
                                 help='wandb run id  having query eval data')
 
@@ -159,14 +149,13 @@ def get_args(arg_str: str = None):
            dynamics_args, queries_args, uncertain_args
 
 
-if __name__ == '__main__':
+def main():
     (args, job_args, path_args, wandb_args, dynamics_args,
      queries_args, uncertainty_args) = get_args()
 
     # d4rl setup
     os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = "1"
     os.environ['D4RL_DATASET_DIR'] = str(args.d4rl_dataset_dir)
-    os.environ['POLICYBAZAAR_DIR'] = str(args.policybazaar_dir)
 
     if args.job == 'train-dynamics':
         config = BaseConfig(args, dynamics_args)
@@ -184,16 +173,17 @@ if __name__ == '__main__':
     elif args.job == 'evaluate-queries':
         # set-up config
         if args.restore_dynamics_from_wandb:
+
             # get remote config from wandb
             assert args.wandb_dynamics_run_id is not None, \
                 'wandb-dynamics-run-id cannot be None'
-            remote_config = wandb.Api().run(args.wandb_dynamics_run_id).config
-            assert args.env_name == remote_config['env_name']
+            run = wandb.Api().run(args.wandb_dynamics_run_id)
+            assert args.env_name == run.config['env_name']
 
             # preserve original dynamics args
             for _arg in dynamics_args._group_actions:
-                setattr(args, _arg.dest, remote_config[_arg.dest])
-                setattr(dynamics_args, _arg.dest, remote_config[_arg.dest])
+                setattr(args, _arg.dest, run.config[_arg.dest])
+                setattr(dynamics_args, _arg.dest, run.config[_arg.dest])
 
             # download dynamics
             config = BaseConfig(args, dynamics_args)
@@ -204,8 +194,6 @@ if __name__ == '__main__':
                           replace=True, root=root)
         else:
             config = BaseConfig(args, dynamics_args)
-
-        assert args.reset_n_step <= config.args.n_step_model
 
         # setup experiment tracking
         if args.use_wandb:
@@ -238,7 +226,7 @@ if __name__ == '__main__':
         network = network.to(config.args.device)
 
         # query-evaluation
-        queries = cque.get_queries(args.env_name)
+        queries = opcc.get_queries(args.env_name)
         predicted_df = evaluate_queries(queries=queries,
                                         network=network,
                                         runs=args.eval_runs,
@@ -246,8 +234,8 @@ if __name__ == '__main__':
                                         device=args.device,
                                         ensemble_mixture=args.ensemble_mixture,
                                         reset_n_step=args.reset_n_step)
-        predicted_df.to_pickle(config.evaluate_queries_path(args,
-                                                            queries_args))
+        query_eval_path = config.evaluate_queries_path(args, queries_args)
+        predicted_df.to_pickle(query_eval_path)
 
         # log data on wandb
         if args.use_wandb:
@@ -310,35 +298,37 @@ if __name__ == '__main__':
 
         config = BaseConfig(args, dynamics_args)
         if query_eval_df is None:
-            query_eval_df = pd.read_pickle(
-                config.evaluate_queries_path(args, queries_args))
+            query_eval_path = config.evaluate_queries_path(args, queries_args)
+            query_eval_df = pd.read_pickle(query_eval_path)
 
         # ################
         # uncertainty-test
         # ################
 
         if config.args.uncertainty_test_type == 'ensemble-voting':
-            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ev(query_eval_df,
-                                                                  ensemble_size_interval=10,
-                                                                  num_ensemble=config.args.num_ensemble,
-                                                                  confidence_interval=0.1)
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ev(
+                query_eval_df,
+                ensemble_size_interval=10,
+                num_ensemble=config.args.num_ensemble,
+                confidence_interval=0.1)
         elif config.args.uncertainty_test_type == 'paired-confidence-interval':
-            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(query_eval_df,
-                                                                  ensemble_size_interval=10,
-                                                                  num_ensemble=config.args.num_ensemble,
-                                                                  step=0.1,
-                                                                  paired=True)
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
+                query_eval_df,
+                ensemble_size_interval=10,
+                num_ensemble=config.args.num_ensemble,
+                step=0.1,
+                paired=True)
         elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
-            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(query_eval_df,
-                                                                  ensemble_size_interval=10,
-                                                                  num_ensemble=config.args.num_ensemble,
-                                                                  step=0.1,
-                                                                  paired=False)
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
+                query_eval_df,
+                ensemble_size_interval=10,
+                num_ensemble=config.args.num_ensemble,
+                step=0.1,
+                paired=False)
         else:
             raise NotImplementedError(
                 '{} is not implemented'.format(config.args.uncetainty_test))
 
-        # save-data
         # setup for saving data on wandb
         if args.use_wandb:
             wandb.config.update({x.dest: vars(args)[x.dest]
@@ -352,8 +342,8 @@ if __name__ == '__main__':
 
             ensemble_df_table = wandb.Table(dataframe=ensemble_df)
             horizon_df_table = wandb.Table(dataframe=horizon_df)
-            wandb.log({'ensemble-data': ensemble_df,
-                       'horizon-data': horizon_df,
+            wandb.log({'ensemble-data': ensemble_df_table,
+                       'horizon-data': horizon_df_table,
                        'ensemble-rpp-data': embl_rpp_df,
                        'horizon-rpp-data': hzn_rpp_df})
             if args.uncertainty_test_type == 'ensemble-voting':
@@ -369,10 +359,12 @@ if __name__ == '__main__':
                 ys = {'accuracy': [], 'abstain': [], 'abstain_count': []}
                 for cat in categories:
                     _filter = _category_df[category] == cat
-                    _sub_df = _category_df[_filter].sort_values(by=[threshold_name])
+                    _sub_df = _category_df[_filter].sort_values(
+                        by=[threshold_name])
                     ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
                     ys['abstain'].append(_sub_df['abstain'].values.tolist())
-                    ys['abstain_count'].append(_sub_df['abstain_count'].values.tolist())
+                    ys['abstain_count'].append(
+                        _sub_df['abstain_count'].values.tolist())
 
                 for key, val in ys.items():
                     _plot = wandb.plot.line_series(
@@ -384,4 +376,8 @@ if __name__ == '__main__':
                     wandb.log({'{}-{}'.format(category, key): _plot})
 
     else:
-        raise NotImplementedError()
+        raise NotImplementedError('{} job is not implemented'.format(args.job))
+
+
+if __name__ == '__main__':
+    main()

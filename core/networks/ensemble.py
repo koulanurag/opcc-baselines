@@ -1,32 +1,45 @@
 import torch
 
-from .n_step import NstepDynamicsNetwork
+from .ff import FFDynamicsNetwork
+from .autoregressive import AgDynamicsNetwork
 from gym.utils import seeding
 import numpy as np
 
+
 class EnsembleDynamicsNetwork:
-    def __init__(self, env_name, dataset_name, num_ensemble, obs_size,
-                 action_size, hidden_size, n_step, dynamics_type,
-                 deterministic=True, constant_prior=False, prior_scale=1.0):
+    def __init__(self, env_name: str, dataset_name: str, num_ensemble,
+                 obs_size, action_size, hidden_size, dynamics_type,
+                 deterministic=True, prior_scale: float = 0):
         super().__init__()
+        self._np_random = None
         self.__obs_size = obs_size
         self.__action_size = action_size
         self.__num_ensemble = num_ensemble
         self.__deterministic = deterministic
-        self.__constant_prior = constant_prior
 
         for i in range(num_ensemble):
-            _net = NstepDynamicsNetwork(env_name=env_name,
+            if dynamics_type == 'feed-forward':
+                net = FFDynamicsNetwork(env_name=env_name,
                                         dataset_name=dataset_name,
                                         obs_size=obs_size,
-                                        action_size=action_size,
+                                        action_size=(action_size * (i + 1)),
                                         hidden_size=hidden_size,
-                                        n_step=n_step,
                                         deterministic=deterministic,
-                                        dynamics_type=dynamics_type,
-                                        constant_prior=constant_prior,
+                                        activation_function='silu',
                                         prior_scale=prior_scale)
-            setattr(self, 'ensemble_{}'.format(i), _net)
+
+            elif dynamics_type == 'autoregressive':
+                net = AgDynamicsNetwork(env_name=env_name,
+                                        dataset_name=dataset_name,
+                                        obs_size=obs_size,
+                                        action_size=(action_size * (i + 1)),
+                                        hidden_size=hidden_size,
+                                        deterministic=deterministic,
+                                        activation_function='silu',
+                                        prior_scale=prior_scale)
+            else:
+                raise ValueError()
+            setattr(self, 'ensemble_{}'.format(i), net)
 
     def reset(self, horizon=1, batch_size=1, reset_n_step=None,
               ensemble_mixture=False):
@@ -40,8 +53,8 @@ class EnsembleDynamicsNetwork:
         return [seed]
 
     def step(self, obs, action):
-        assert len(obs.shape) == 3, '(batch , ensemble ,obs. size) required.'
-        assert len(action.shape) == 3
+        assert len(obs.shape) == 3, '(batch , ensemble , obs. size) required.'
+        assert len(action.shape) == 3, '(batch , ensemble , obs. ) required.'
 
         next_obs, reward, done = None, None, None
 

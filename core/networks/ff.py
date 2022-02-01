@@ -12,16 +12,16 @@ class FFDynamicsNetwork(Base):
     """
 
     def __init__(self, env_name, dataset_name, obs_size, action_size,
-                 hidden_size, deterministic=True, constant_prior=False,
-                 activation_function='relu', lr=1e-3, prior_scale=1):
+                 hidden_size, deterministic=True,
+                 activation_function='relu', lr=1e-3, prior_scale=0):
         Base.__init__(self,
                       env_name=env_name,
                       dataset_name=dataset_name,
                       obs_size=obs_size,
                       action_size=action_size,
                       deterministic=deterministic,
-                      constant_prior=constant_prior,
                       prior_scale=prior_scale)
+        assert prior_scale >= 0, 'prior scale must be +ve'
 
         self.act_fn = getattr(F, activation_function)
         self.fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
@@ -29,16 +29,14 @@ class FFDynamicsNetwork(Base):
         self.fc3 = nn.Linear(hidden_size, hidden_size)
         self.fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
-        if constant_prior:
-            layer = nn.Linear(self.obs_size + action_size, hidden_size)
-            self.prior_fc1 = layer
-            self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
-            self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
-            self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
+        self.prior_fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
+        self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
+        self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
+        self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
-            for name, param in self.named_parameters():
-                if 'prior' in name:
-                    param.requires_grad = False
+        for name, param in self.named_parameters():
+            if 'prior' in name:
+                param.requires_grad = False
 
         self.apply(weights_init)
 
@@ -103,7 +101,7 @@ class FFDynamicsNetwork(Base):
 
     def forward(self, obs, action):
         mu, log_var_logit = self._logits(obs, action)
-        if self.constant_prior:
+        if self.prior_scale > 0:
             with torch.no_grad():
                 _mu, _log_var_logit = self._prior_logits(obs, action)
                 mu += self.prior_scale * _mu

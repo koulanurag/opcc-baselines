@@ -45,10 +45,8 @@ class BaseConfig(object):
                                        obs_size=self.observation_size,
                                        action_size=self.action_size,
                                        hidden_size=self.args.hidden_size,
-                                       n_step=self.args.n_step_model,
                                        deterministic=self.args.deterministic,
                                        dynamics_type=self.args.dynamics_type,
-                                       constant_prior=self.args.constant_prior,
                                        prior_scale=self.args.constant_prior_scale)
 
     def new_game(self):

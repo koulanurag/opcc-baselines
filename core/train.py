@@ -1,6 +1,6 @@
 import logging
 
-import cque
+import opcc
 import torch
 import wandb
 
@@ -18,37 +18,36 @@ def train_dynamics(config: BaseConfig):
     network = config.get_uniform_dynamics_network()
     network.train()
 
-    # create replay buffers with bootstrap sampling
-    dataset = cque.get_sequence_dataset(config.args.env_name,
-                                        config.args.dataset_name)
-
-    # get data bounds for clipping during evaluation
-    observations = np.concatenate([x['observations'] for x in dataset], axis=0)
-    obs_min = observations.min(axis=0).tolist()
-    obs_max = observations.max(axis=0).tolist()
-    obs_min = [obs_min for _ in range(network.num_ensemble)]
-    obs_max = [obs_max for _ in range(network.num_ensemble)]
-
-    rewards = np.concatenate([x['rewards'] for x in dataset], axis=0)
-    reward_min = rewards.min(axis=0).tolist()
-    reward_max = rewards.max(axis=0).tolist()
-    reward_min = [reward_min for _ in range(network.num_ensemble)]
-    reward_max = [reward_max for _ in range(network.num_ensemble)]
+    # create replay buffers with BOOTSTRAP SAMPLING
+    dataset = opcc.get_qlearning_dataset(config.args.env_name,
+                                         config.args.dataset_name)
 
     replay_buffers = {}
+    obs_mins, obs_maxs = [], []
+    reward_mins, reward_maxs = [], []
     for ensemble_i in range(network.num_ensemble):
         print('ensemble-{}'.format(ensemble_i))
-        _seq_idxs = np.random.randint(0, len(dataset), size=len(dataset))
-        # _seq_idxs = np.random.choice(dataset, size=len(dataset))
-        _dataset = np.array(dataset)[_seq_idxs]
-        # Todo: get bounds for each _dataset and optimize it
-        # import pdb; pdb.set_trace()
+
+        _idxs = np.random.randint(0, len(dataset), size=len(dataset))
+        _dataset = {k: v[_idxs] for k, v in dataset.items()}
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
-        # import sys; sys.exit(0)
+
+        # get data bounds for clipping during evaluation
+        observations = _dataset['observations']
+        obs_min = observations.min(axis=0).tolist()
+        obs_max = observations.max(axis=0).tolist()
+        rewards = _dataset['rewards']
+        reward_min = rewards.min(axis=0).tolist()
+        reward_max = rewards.max(axis=0).tolist()
+
+        obs_mins.append(obs_min)
+        obs_maxs.append(obs_max)
+        reward_mins.append(reward_min)
+        reward_maxs.append(reward_max)
 
     # setup network
-    network.set_obs_bound(obs_min, obs_max)
-    network.set_reward_bound(reward_min, reward_max)
+    network.set_obs_bound(obs_mins, obs_maxs)
+    network.set_reward_bound(reward_mins, reward_maxs)
     network = network.to(config.device)
 
     # train
