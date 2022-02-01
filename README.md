@@ -1,17 +1,18 @@
-# cque-baselines
+# opcc-baselines
+Code for baselines presented in research paper "Offline Policy Comparison with Confidence:
+Baseline and Benchmarks"
 
+![Python package](https://github.com/koulanurag/opcc-baselines/workflows/Python%20package/badge.svg)
+![License](https://img.shields.io/github/license/koulanurag/opcc-baselines)
 
 ## Installation
-It requires:
 
-- [Python 3.7+](https://www.python.org/downloads/)
-- [mujoco-py](https://github.com/openai/mujoco-py), [mujoco 200](https://www.roboti.us/index.html). Please, follow `mujoco-py` installation instructions from [here](https://github.com/openai/mujoco-py).
-- [Pytorch >= 1.8.0](https://pytorch.org/)
+#### 1. Setup [opcc](https://github.com/koulanurag/opcc)
 
-Python dependencies could be installed using:
+#### 2. Python dependencies could be installed using:
 ```bash
-git clone https://github.com/koulanurag/cque-baselines.git
-cd cque-baselines
+git clone https://github.com/koulanurag/opcc-baselines.git
+cd opcc-baselines
 python3 -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 ```
@@ -20,4 +21,3 @@ pip install -r requirements.txt
 
 ## Reproducibility
 Please refer to Wiki for complete list of commands for each environment
-
