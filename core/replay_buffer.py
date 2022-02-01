@@ -9,6 +9,7 @@ import torch
 class BatchOutput(NamedTuple):
     obs: torch.Tensor
     action: torch.Tensor
+    next_obs: torch.Tensor
     reward: torch.Tensor
     terminal: torch.Tensor
 
@@ -26,18 +27,21 @@ class ReplayBuffer:
 
     def sample(self, n: int) -> BatchOutput:
         idxs = np.random.randint(low=0, high=self.size, size=n)
-        observations = self.dataset['observations'][idxs]
-        rewards = self.dataset['rewards'][idxs]
-        actions = self.dataset['actions'][idxs]
-        terminals = self.dataset['terminals'][idxs]
+        obs = self.dataset['observations'][idxs]
+        action = self.dataset['actions'][idxs]
+        next_obs = self.dataset['observations'][idxs]
+        reward = self.dataset['rewards'][idxs]
+        terminal = self.dataset['terminals'][idxs]
 
-        obs = torch.tensor(observations, device=self.device, dtype=torch.float)
-        action = torch.tensor(actions, device=self.device, dtype=torch.float)
-        reward = torch.tensor(rewards, device=self.device, dtype=torch.float)
-        terminal = torch.tensor(terminals, device=self.device,
+        obs = torch.tensor(obs, device=self.device, dtype=torch.float)
+        action = torch.tensor(action, device=self.device, dtype=torch.float)
+        next_obs = torch.tensor(next_obs, device=self.device,
+                                dtype=torch.float)
+        reward = torch.tensor(reward, device=self.device, dtype=torch.float)
+        terminal = torch.tensor(terminal, device=self.device,
                                 dtype=torch.float)
 
-        return BatchOutput(obs, action, reward, terminal)
+        return BatchOutput(obs, action, next_obs, reward, terminal)
 
     @property
     def size(self) -> int:

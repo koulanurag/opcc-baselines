@@ -4,6 +4,7 @@ from .ff import FFDynamicsNetwork
 from .autoregressive import AgDynamicsNetwork
 from gym.utils import seeding
 import numpy as np
+from collections import defaultdict
 
 
 class EnsembleDynamicsNetwork:
@@ -83,13 +84,25 @@ class EnsembleDynamicsNetwork:
 
         return next_obs, reward, done
 
-    def update(self, replay_buffer, batch_count: int, batch_size: int):
-        loss = {}
+    def update(self, replay_buffer, update_count: int, batch_size: int):
+        loss = defaultdict(lambda: defaultdict(lambda: 0))
         for i in range(self.num_ensemble):
             _name = 'ensemble_{}'.format(i)
             dynamics = getattr(self, _name)
-            loss[_name] = dynamics.update(replay_buffer[i], batch_count,
-                                          batch_size)
+
+            for batch_i in range(update_count):
+                batch = replay_buffer[i].sample(batch_size)
+                _loss = dynamics.update(batch.obs,
+                                        batch.action,
+                                        batch.next_obs,
+                                        batch.reward.unsqueeze(-1))
+                for k, v in _loss.items():
+                    loss[_name][k] += v
+
+        # mean with batch count
+        for k in loss:
+            for _k, _v in loss[k].items():
+                loss[k][_k] = _v / update_count
         return loss
 
     @property

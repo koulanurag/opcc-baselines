@@ -8,6 +8,7 @@ from core.config import BaseConfig
 from core.replay_buffer import ReplayBuffer
 from core.utils import init_logger
 import numpy as np
+from tqdm import tqdm
 
 
 def train_dynamics(config: BaseConfig):
@@ -25,9 +26,7 @@ def train_dynamics(config: BaseConfig):
     replay_buffers = {}
     obs_mins, obs_maxs = [], []
     reward_mins, reward_maxs = [], []
-    for ensemble_i in range(network.num_ensemble):
-        print('ensemble-{}'.format(ensemble_i))
-
+    for ensemble_i in tqdm(range(network.num_ensemble)):
         _idxs = np.random.randint(0, len(dataset), size=len(dataset))
         _dataset = {k: v[_idxs] for k, v in dataset.items()}
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
@@ -55,14 +54,13 @@ def train_dynamics(config: BaseConfig):
                           config.args.log_interval):
         # estimate ensemble loss and update
         loss: dict = network.update(replay_buffers,
-                                    batch_count=config.args.log_interval,
+                                    update_count=config.args.log_interval,
                                     batch_size=config.args.dynamics_batch_size)
         # log
         _msg = '#{:<10}'.format(update_i)
         for k1, v1 in loss.items():
             for k2, v2 in v1.items():
-                for k3, v3 in v2.items():
-                    _msg += '{}/{}/{} loss:{:<8.3f}'.format(k1, k2, k3, v3)
+                _msg += '{}/{} loss:{:<8.3f}'.format(k1, k2, v2)
         logging.getLogger('train_dynamics').info(_msg)
         if config.args.use_wandb:
             wandb.log({**{'update': update_i}, **loss})
