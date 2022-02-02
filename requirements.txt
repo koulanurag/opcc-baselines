@@ -2,3 +2,4 @@ rliable
 pandas
 wandb
 sklearn
+tqdm
