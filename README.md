@@ -39,15 +39,19 @@ pip install -r requirements.txt
 | `--env-name`                                    | name of the environment (default: HalfCheetah-v2)                              |
 | `--dataset-name`                                | name of the dataset (default: random)                                          |
 | `--dynamics-type {feed-forward,autoregressive}` | type of dynamics model (default: feed-forward)                                 |
-| `--deterministic `                              | if True, we use deterministic model otherwise<br/> stochastic (default: False) |
-| `--dynamics-seed `                              | seed for training dynamics (default: 0)                                        |
-| `--log-interval `                               | log interval for training dynamics (default: 1)                                |
-| `--dynamics-checkpoint-interval `               | update interval to save dynamics checkpoint (default:1)                        |
-| `--hidden-size `                                | hidden size for Linear Layers (default: 200)                                   |
-| `--update-count `                               | total batch update count for training (default: 100)                           |
-| `--dynamics-batch-size `                        | batch size for Dynamics Learning (default: 256)                                |
-| `--dynamics-checkpoint-interval `               | update interval to save dynamics checkpoint (default:1)                        |
-| `--constant-prior-scale `                       | uscale for constant priors (default: 0)                                        |
+| `--deterministic`                               | if True, we use deterministic model otherwise<br/> stochastic (default: False) |
+| `--dynamics-seed`                               | seed for training dynamics (default: 0)                                        |
+| `--log-interval`                                | log interval for training dynamics (default: 1)                                |
+| `--dynamics-checkpoint-interval`                | update interval to save dynamics checkpoint (default:1)                        |
+| `--hidden-size`                                 | hidden size for Linear Layers (default: 200)                                   |
+| `--update-count`                                | total batch update count for training (default: 100)                           |
+| `--dynamics-batch-size`                         | batch size for Dynamics Learning (default: 256)                                |
+| `--dynamics-checkpoint-interval`                | update interval to save dynamics checkpoint (default:1)                        |
+| `--reward-loss-coeff`                           | reward loss coefficient for training (default: 1)                              |
+| `--observation-loss-coeff`                      | obs. loss coefficient for training (default: 1)                                |
+| `----num-ensemble`                              | number of dynamics for ensemble (default: 1)                                   |
+| `--constant-prior-scale `                       | scale for constant priors (default: 0)                                         |
+
 
 ## Reproducibility
 
