@@ -8,19 +8,22 @@ from .utils import weights_init, is_terminal
 
 class AgDynamicsNetwork(Base):
     """
-    Autoregressive Dynamics Network
+    Autoregressive dynamics network
+
+    Given an observation and action, the network predicts delta observation
+    and reward. Thereafter, delta observation is added to the input observation
+    to retrieve next observation
     """
 
     def __init__(self, env_name, dataset_name, obs_size, action_size,
-                 hidden_size, deterministic=True, constant_prior=False,
-                 activation_function='relu', lr=1e-3, prior_scale=1):
+                 hidden_size, deterministic=True,
+                 activation_function='relu', lr=1e-3, prior_scale=0):
         Base.__init__(self,
                       env_name=env_name,
                       dataset_name=dataset_name,
                       obs_size=obs_size,
                       action_size=action_size,
                       deterministic=deterministic,
-                      constant_prior=constant_prior,
                       prior_scale=prior_scale)
 
         self.act_fn = getattr(F, activation_function)
@@ -30,15 +33,13 @@ class AgDynamicsNetwork(Base):
         self.fc3 = nn.Linear(hidden_size, hidden_size)
         self.fc4 = nn.Linear(hidden_size, 2)
 
-        if constant_prior:
-            layer = nn.Linear(self._input_size, hidden_size)
-            self.prior_fc1 = layer
-            self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
-            self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
-            self.prior_fc4 = nn.Linear(hidden_size, 2)
-            for name, param in self.named_parameters():
-                if 'prior' in name:
-                    param.requires_grad = False
+        self.prior_fc1 = nn.Linear(self._input_size, hidden_size)
+        self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
+        self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
+        self.prior_fc4 = nn.Linear(hidden_size, 2)
+        for name, param in self.named_parameters():
+            if 'prior' in name:
+                param.requires_grad = False
 
         self.apply(weights_init)
 
@@ -104,7 +105,8 @@ class AgDynamicsNetwork(Base):
     def forward(self, obs, action):
         batch_size = obs.shape[0]
         next_obs = torch.zeros((batch_size, self.obs_size), device=obs.device)
-        one_hot = torch.zeros((batch_size, self.obs_size + 1), device=obs.device)  # create obs
+        one_hot = torch.zeros((batch_size, self.obs_size + 1),
+                              device=obs.device)  # create obs
         one_hot[:, 0] = 1.0
         reward, mu, log_var = None, None, None
         for obs_i in range(self.obs_size + 1):  # add dimension for reward
@@ -119,8 +121,10 @@ class AgDynamicsNetwork(Base):
                     _mu_i, _log_var_logit_i = self._prior_logits(_obs, action)
                     mu_i += self.prior_scale * _mu_i
                     log_var_logit_i += self.prior_scale * _log_var_logit_i
-            log_var_i = self.max_logvar - F.softplus(self.max_logvar - log_var_logit_i)
-            log_var_i = self.min_logvar + F.softplus(log_var_i - self.min_logvar)
+            log_var_i = (self.max_logvar
+                         - F.softplus(self.max_logvar - log_var_logit_i))
+            log_var_i = (self.min_logvar
+                         + F.softplus(log_var_i - self.min_logvar))
 
             if obs_i == 0:
                 mu = mu_i.unsqueeze(-1)
@@ -141,7 +145,8 @@ class AgDynamicsNetwork(Base):
                 # output is the delta observation
                 next_obs[:, obs_i] = output + obs[:, obs_i]
                 if self.is_obs_clip_enabled:
-                    next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i], obs_i)
+                    next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i],
+                                                       obs_i)
             else:
                 if self.is_reward_clip_enabled:
                     reward = self.clip_reward(output)

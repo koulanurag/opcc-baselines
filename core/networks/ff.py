@@ -12,7 +12,7 @@ class FFDynamicsNetwork(Base):
 
     Given an observation and action, the network predicts delta observation
     and reward. Thereafter, delta observation is added to the input observation
-    to retrieve next observation
+    to retrieve next observation.
 
     """
 
@@ -49,7 +49,7 @@ class FFDynamicsNetwork(Base):
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
-        # default bounds
+        # default bounds for clipping
         self._obs_max = torch.ones(obs_size, dtype=torch.float) * torch.inf
         self._obs_max = nn.Parameter(self._obs_max, requires_grad=False)
         self._obs_min = torch.ones(obs_size, dtype=torch.float) * -torch.inf

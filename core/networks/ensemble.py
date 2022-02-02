@@ -112,10 +112,6 @@ class EnsembleDynamicsNetwork:
     def deterministic(self):
         return self.__deterministic
 
-    @property
-    def constant_prior(self):
-        return self.__constant_prior
-
     def to(self, device, *args, **kwargs):
         for i in range(self.num_ensemble):
             ensemble_i = 'ensemble_{}'.format(i)
