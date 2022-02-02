@@ -148,6 +148,16 @@ class EnsembleDynamicsNetwork:
             name = 'ensemble_{}'.format(i)
             getattr(self, name).set_obs_bound(obs_min[i], obs_max[i])
 
+    def set_obs_norm(self, obs_mean, obs_std):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).set_obs_norm(obs_mean[i], obs_std[i])
+
+    def set_action_norm(self, action_mean, action_std):
+        for i in range(self.num_ensemble):
+            name = 'ensemble_{}'.format(i)
+            getattr(self, name).set_action_norm(action_mean[i], action_std[i])
+
     def set_reward_bound(self, reward_min, reward_max):
         for i in range(self.num_ensemble):
             name = 'ensemble_{}'.format(i)

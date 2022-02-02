@@ -60,6 +60,17 @@ class FFDynamicsNetwork(Base):
         self._reward_min = torch.tensor(-torch.inf, dtype=torch.float)
         self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
 
+        # default normalization attributes: only used during step()
+        _obs_mean = torch.zeros(obs_size, dtype=torch.float)
+        _obs_std = torch.ones(obs_size, dtype=torch.float)
+        self._obs_mean = nn.Parameter(_obs_mean, requires_grad=False)
+        self._obs_std = nn.Parameter(_obs_std, requires_grad=False)
+
+        _action_mean = torch.zeros(action_size, dtype=torch.float)
+        _action_std = torch.ones(action_size, dtype=torch.float)
+        self._action_mean = nn.Parameter(_action_mean, requires_grad=False)
+        self._action_std = nn.Parameter(_action_std, requires_grad=False)
+
         # create optimizer with no prior parameters
         non_prior_params = [param for name, param in self.named_parameters()
                             if 'prior' not in name]
@@ -116,7 +127,11 @@ class FFDynamicsNetwork(Base):
         return mu, log_var
 
     def step(self, obs, action):
-        # Todo: normalize obs. and action
+
+        # normalize obs. and action
+        obs = self.normalize_obs(obs)
+        action = self.normalize_action(action)
+
         mu, log_var = self.forward(obs, action)
         delta_next_obs_mu, reward_mu = mu[:, :-1], mu[:, -1]
         next_obs_log_var, reward_log_var = log_var[:, :-1], log_var[:, -1]
@@ -132,13 +147,14 @@ class FFDynamicsNetwork(Base):
             reward = torch.normal(reward_mu, torch.sqrt(var))
 
         next_obs = obs.detach() + delta_next_obs
-
-        # Todo: denormalize obs
         if self.is_obs_clip_enabled:
             next_obs = self.clip_obs(next_obs)
         if self.is_reward_clip_enabled:
             reward = self.clip_reward(reward)
 
+        # denormalize next-obs
+        # This must be done before determining terminal state
+        next_obs = self.denormalize_obs(next_obs)
         done = is_terminal(self.env_name, next_obs.cpu().detach())
         return next_obs, reward, done
 
@@ -205,6 +221,26 @@ class FFDynamicsNetwork(Base):
         reward_max = torch.tensor(reward_max)
         self._reward_min = nn.Parameter(reward_min, requires_grad=False)
         self._reward_max = nn.Parameter(reward_max, requires_grad=False)
+
+    def set_obs_norm(self, obs_mean, obs_std):
+        assert len(obs_mean) == self.obs_size
+        assert len(obs_std) == self.obs_size
+
+        obs_mean = torch.tensor(obs_mean)
+        obs_std = torch.tensor(obs_std)
+
+        self._obs_mean = nn.Parameter(obs_mean, requires_grad=False)
+        self._obs_std = nn.Parameter(obs_std, requires_grad=False)
+
+    def set_action_norm(self, action_mean, action_std):
+        assert len(action_mean) == self.action_size
+        assert len(action_std) == self.action_size
+
+        action_mean = torch.tensor(action_mean)
+        action_std = torch.tensor(action_std)
+
+        self._action_mean = nn.Parameter(action_mean, requires_grad=False)
+        self._action_std = nn.Parameter(action_std, requires_grad=False)
 
     def clip_obs(self, obs):
         return torch.clip(obs, min=self.obs_min, max=self.obs_max)

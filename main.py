@@ -90,13 +90,9 @@ def get_args(arg_str: str = None):
                                help='gradient clipping norm')
     dynamics_args.add_argument('--dynamics-lr', type=float, default=1e-3,
                                help='learning rate for Dynamics')
-
-    dynamics_args.add_argument('--normalize-obs', action='store_true',
-                               help='normalizes the observation space ')
-    dynamics_args.add_argument('--normalize-reward', action='store_true',
-                               help='normalizes the rewards')
-    dynamics_args.add_argument('--normalize-action', action='store_true',
-                               help='normalizes the action space ')
+    dynamics_args.add_argument('--normalize', action='store_true',
+                               help='normalizes the network inputs'
+                                    ' with 0 mean and 1 std')
     dynamics_args.add_argument('--num-ensemble', default=1, type=int,
                                help='number of dynamics for ensemble ')
     dynamics_args.add_argument('--constant-prior-scale', type=float,
