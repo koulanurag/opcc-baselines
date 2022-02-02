@@ -236,22 +236,10 @@ def main():
             table = wandb.Table(dataframe=predicted_df)
             wandb.log({'query-eval-data': table})
             wandb.log({"mean/q-value-comparison-a":
-                           scatter(table, x="pred_a_mean", y="target_a",
+                           scatter(table, x="pred_a_mean", y="return_a",
                                    title="q-value-comparison-a")})
             wandb.log({"mean/q-value-comparison-b":
-                           scatter(table, x="pred_b_mean", y="target_b",
-                                   title="q-value-comparison-b")})
-            wandb.log({"iqm/q-value-comparison-a":
-                           scatter(table, x="pred_a_iqm", y="target_a",
-                                   title="q-value-comparison-a")})
-            wandb.log({"iqm/q-value-comparison-b":
-                           scatter(table, x="pred_b_iqm", y="target_b",
-                                   title="q-value-comparison-b")})
-            wandb.log({"median/q-value-comparison-a":
-                           scatter(table, x="pred_a_median", y="target_a",
-                                   title="q-value-comparison-a")})
-            wandb.log({"median/q-value-comparison-b":
-                           scatter(table, x="pred_b_median", y="target_b",
+                           scatter(table, x="pred_b_mean", y="return_b",
                                    title="q-value-comparison-b")})
 
     elif args.job == 'uncertainty-test':
@@ -302,7 +290,7 @@ def main():
                 query_eval_df,
                 ensemble_size_interval=10,
                 num_ensemble=config.args.num_ensemble,
-                confidence_interval=0.1)
+                confidence_interval=0.01)
         elif config.args.uncertainty_test_type == 'paired-confidence-interval':
             ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
                 query_eval_df,
