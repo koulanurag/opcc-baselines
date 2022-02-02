@@ -18,7 +18,7 @@ class EnsembleDynamicsNetwork:
         self.__action_size = action_size
         self.__num_ensemble = num_ensemble
         self.__deterministic = deterministic
-
+        self._ensemble_mixture = False
         for i in range(num_ensemble):
             if dynamics_type == 'feed-forward':
                 net = FFDynamicsNetwork(env_name=env_name,
@@ -43,16 +43,13 @@ class EnsembleDynamicsNetwork:
                 raise ValueError()
             setattr(self, 'ensemble_{}'.format(i), net)
 
-    def reset(self, horizon=1, batch_size=1, reset_n_step=None,
-              ensemble_mixture=False):
-        self._ensemble_mixture = ensemble_mixture
-        for i in range(self.num_ensemble):
-            getattr(self, 'ensemble_{}'.format(i)).reset(horizon, batch_size,
-                                                         reset_n_step)
-
-    def seed(self, n=None):
-        self._np_random, seed = seeding.np_random(n)
+    def enable_mixture(self, seed=None):
+        self._ensemble_mixture = True
+        self._np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def disable_mixture(self):
+        self._ensemble_mixture = False
 
     def step(self, obs, action):
         assert len(obs.shape) == 3, '(batch , ensemble , obs. size) required.'

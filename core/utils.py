@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 import opcc
 from rliable import metrics
+from typing import List
 
 
 def init_logger(base_path: str, name: str):
@@ -23,51 +24,53 @@ def init_logger(base_path: str, name: str):
     logger.setLevel(logging.DEBUG)
 
 
-def evaluate_queries(queries, network, runs, batch_size, reset_n_step,
-                     device='cpu', ensemble_mixture=False):
+def evaluate_queries(queries, network, runs, batch_size, device: str = 'cpu',
+                     mixture: bool = False) -> pd.DataFrame:
     predict_df = pd.DataFrame()
     for (policy_a_id, policy_b_id), query_batch in queries.items():
 
+        # get policies
         policy_a, _ = opcc.get_policy(*policy_a_id)
         policy_b, _ = opcc.get_policy(*policy_b_id)
         policy_a = policy_a.to(device)
         policy_b = policy_b.to(device)
 
         # query
-        obss_a = query_batch['obs_a']
-        actions_a = query_batch['action_a']
-        obss_b = query_batch['obs_b']
-        actions_b = query_batch['action_b']
+        obs_a = query_batch['obs_a']
+        action_a = query_batch['action_a']
+        obs_b = query_batch['obs_b']
+        action_b = query_batch['action_b']
         horizons = query_batch['horizon']
 
-        pred_a = np.zeros((len(obss_a), network.num_ensemble))
-        pred_b = np.zeros((len(obss_b), network.num_ensemble))
-        with torch.no_grad():
-            for horizon in np.unique(horizons):
-                _filter = horizons == horizon
-                pred_a[_filter, :] = mc_return(network=network,
-                                               init_obs=obss_a[_filter],
-                                               init_action=actions_a[_filter],
-                                               policy=policy_a.actor,
-                                               horizon=horizon,
-                                               reset_n_step=reset_n_step,
-                                               device=device,
-                                               runs=runs,
-                                               ensemble_mixture=ensemble_mixture,
-                                               step_batch_size=batch_size)
+        # evaluate
+        pred_a = np.zeros((len(obs_a), network.num_ensemble))
+        pred_b = np.zeros((len(obs_b), network.num_ensemble))
+        for horizon in np.unique(horizons):
+            _filter = horizons == horizon
+            pred_a[_filter, :] = mc_return(network=network,
+                                           init_obs=obs_a[_filter],
+                                           init_action=action_a[_filter],
+                                           policy=policy_a.actor,
+                                           horizon=horizon,
+                                           device=device,
+                                           runs=runs,
+                                           mixture=mixture,
+                                           eval_batch_size=batch_size,
+                                           mixture_seed=0)
 
-                pred_b[_filter, :] = mc_return(network=network,
-                                               init_obs=obss_b[_filter],
-                                               init_action=actions_b[_filter],
-                                               policy=policy_b.actor,
-                                               horizon=horizon,
-                                               reset_n_step=reset_n_step,
-                                               device=device,
-                                               runs=runs,
-                                               ensemble_mixture=ensemble_mixture,
-                                               step_batch_size=batch_size)
+            pred_b[_filter, :] = mc_return(network=network,
+                                           init_obs=obs_b[_filter],
+                                           init_action=action_b[_filter],
+                                           policy=policy_b.actor,
+                                           horizon=horizon,
+                                           device=device,
+                                           runs=runs,
+                                           mixture=mixture,
+                                           eval_batch_size=batch_size,
+                                           mixture_seed=0)
 
-        for idx in range(len(obss_a)):
+        # store in dataframe
+        for idx in range(len(obs_a)):
             _stat = {
                 # ground-truth info
                 **{'env_name': policy_a_id[0],
@@ -75,10 +78,10 @@ def evaluate_queries(queries, network, runs, batch_size, reset_n_step,
                    'policy_b_id': policy_b_id[1],
                    'query_idx': idx,
                    'policy_ids': (policy_a_id[1], policy_b_id[1]),
-                   'obs_a': obss_a[idx],
-                   'action_a': actions_a[idx],
-                   'obs_b': obss_b[idx],
-                   'action_b': actions_b[idx],
+                   'obs_a': obs_a[idx],
+                   'action_a': action_a[idx],
+                   'obs_b': obs_b[idx],
+                   'action_b': action_b[idx],
                    'horizon': horizons[idx],
                    'target': query_batch['target'][idx],
                    'return_a': query_batch['info']['return_a'][idx],
@@ -108,9 +111,9 @@ def evaluate_queries(queries, network, runs, batch_size, reset_n_step,
 
 @torch.no_grad()
 def mc_return(network, init_obs, init_action, policy, horizon: int,
-              reset_n_step: int, device='cpu', runs: int = 1,
-              ensemble_mixture: bool = False, step_batch_size: int = 128,
-              mixture_seed: int = 0):
+              device: str = 'cpu', runs: int = 1, mixture: bool = False,
+              eval_batch_size: int = 128,
+              mixture_seed: int = 0) -> List[float]:
     assert len(init_obs) == len(init_action), 'batch size not same'
     batch_size, obs_size = init_obs.shape
     _, action_size = init_action.shape
@@ -126,27 +129,23 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
     init_action = init_action.repeat(runs, 1, 1)
 
     returns = np.zeros((batch_size * runs, network.num_ensemble))
-    for batch_idx in range(0, returns.shape[0], step_batch_size):
-        batch_end_idx = batch_idx + step_batch_size
+    for batch_idx in range(0, returns.shape[0], eval_batch_size):
+        batch_end_idx = batch_idx + eval_batch_size
 
         # reset
         step_obs = init_obs[batch_idx:batch_end_idx].to(device)
         step_action = init_action[batch_idx:batch_end_idx].to(device)
-        network.reset(horizon=horizon,
-                      batch_size=len(step_obs),
-                      reset_n_step=reset_n_step,
-                      ensemble_mixture=ensemble_mixture)
 
-        if ensemble_mixture:
-            network.seed(mixture_seed)
+        if mixture:
+            network.enable_mixture(mixture_seed)
 
         # step
         for step in range(horizon):
             step_obs, reward, done = network.step(step_obs, step_action)
             assert len(step_obs.shape) == 3, 'expected (batch, ensemble, obs)'
             step_action = policy(step_obs)
-            assert len(
-                step_action.shape) == 3, 'expected (batch, ensemble,action)'
+            assert len(step_action.shape) == 3, \
+                'expected (batch, ensemble,action)'
 
             # move to cpu for saving cuda memory
             reward = reward.cpu().detach().numpy()
@@ -154,6 +153,9 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
 
         if device == 'cuda':
             torch.cuda.empty_cache()
+
+        if mixture:
+            network.disable_mixture()
 
     returns = returns.reshape((batch_size, runs, network.num_ensemble))
     returns = returns.mean(1)

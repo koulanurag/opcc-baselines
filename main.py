@@ -225,8 +225,7 @@ def main():
                                         runs=args.eval_runs,
                                         batch_size=args.eval_batch_size,
                                         device=args.device,
-                                        ensemble_mixture=args.ensemble_mixture,
-                                        reset_n_step=args.reset_n_step)
+                                        mixture=args.mixture)
         query_eval_path = config.evaluate_queries_path(args, queries_args)
         predicted_df.to_pickle(query_eval_path)
 
