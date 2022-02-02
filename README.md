@@ -32,7 +32,7 @@ pip install -r requirements.txt
 | `--wandb-project-name` | name of the wandb project (default: opcc-baselines)    |
 | `--use-wandb`          | use Weight and bias visualization lib (default: False) |
 
-#### Train dynamics
+#### Train dynamics:
 
 | Optional Arguments                              | Description                                                                    |
 |:------------------------------------------------|:-------------------------------------------------------------------------------|
@@ -50,8 +50,28 @@ pip install -r requirements.txt
 | `--reward-loss-coeff`                           | reward loss coefficient for training (default: 1)                              |
 | `--observation-loss-coeff`                      | obs. loss coefficient for training (default: 1)                                |
 | `----num-ensemble`                              | number of dynamics for ensemble (default: 1)                                   |
-| `--constant-prior-scale `                       | scale for constant priors (default: 0)                                         |
+| `--constant-prior-scale`                        | scale for constant priors (default: 0)                                         |
 
+
+#### Query Evaluation:
+
+| Optional Arguments              | Description                                                                                             |
+|:--------------------------------|:--------------------------------------------------------------------------------------------------------|
+| `--restore-dynamics-from-wandb` | restore model from wandb run (default: False)                                                           |
+| `--wandb-dynamics-run-id `      | wandb run id if restoring model (default: None)                                                         |
+| `--mixture`                     | If enabled, randomly select ensemble models at<br/> each step of query evaluation<br/> (default: False) |
+| `--eval-runs`                   | run count for each query evaluation (default: 1)                                                        |
+| `--eval-batch-size`             | batch size for query evaluation (default: 128)                                                          |
+| `--clip-obs`                    | clip the observation space with bounds for <br/>query evaluation (default: False)                       |
+| `--clip-reward`                 | clip the reward with dataset bounds for <br/>query evaluation (default: False)                          |
+
+#### Uncertainty-test :
+
+| Optional Arguments                                                                                            | Description                                           |
+|:--------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
+| `--uncertainty-test-type` {paired-confidence-interval,<br/>unpaired-confidence-interval,<br/>ensemble-voting} | type of uncertainty test  (default:ensemble-voting)   |
+| `--restore-query-eval-data-from-wandb`                                                                        | get query evaluation data from wandb (default: False) |
+| `--wandb-query-eval-data-run-id`                                                                              | wandb run id having query eval data (default: None)   |
 
 ## Reproducibility
 
