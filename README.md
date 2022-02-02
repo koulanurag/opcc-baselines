@@ -67,11 +67,11 @@ pip install -r requirements.txt
 
 #### Uncertainty-test :
 
-| Optional Arguments                                                                                            | Description                                           |
-|:--------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
-| `--uncertainty-test-type` {paired-confidence-interval,<br/>unpaired-confidence-interval,<br/>ensemble-voting} | type of uncertainty test  (default:ensemble-voting)   |
-| `--restore-query-eval-data-from-wandb`                                                                        | get query evaluation data from wandb (default: False) |
-| `--wandb-query-eval-data-run-id`                                                                              | wandb run id having query eval data (default: None)   |
+| Optional Arguments                                                                                                      | Description                                           |
+|:------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
+| `--uncertainty-test-type`<br/>`{paired-confidence-interval,`<br/>`unpaired-confidence-interval,`<br/>`ensemble-voting}` | type of uncertainty test  (default:ensemble-voting)   |
+| `--restore-query-eval-data-from-wandb`                                                                                  | get query evaluation data from wandb (default: False) |
+| `--wandb-query-eval-data-run-id`                                                                                        | wandb run id having query eval data (default: None)   |
 
 ## Reproducibility
 
