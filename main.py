@@ -109,9 +109,9 @@ def get_args(arg_str: str = None):
                               help='restore model from wandb run')
     queries_args.add_argument('--wandb-dynamics-run-id', type=str,
                               help='wandb run id if restoring model')
-    queries_args.add_argument('--ensemble-mixture', action='store_true',
-                              help='if enabled, randomly select a models at'
-                                   ' each step of query evaluation  ')
+    queries_args.add_argument('--mixture', action='store_true',
+                              help='if enabled, randomly select a ensemble'
+                                   'models at each step of query evaluation')
     queries_args.add_argument('--eval-runs', type=int, default=1,
                               help='run count for each query evaluation')
     queries_args.add_argument('--eval-batch-size', type=int, default=128,
@@ -283,7 +283,7 @@ def main():
             # download query-evaluation data
             table_file_path = run.summary.get('query-eval-data').get("path")
             table_file = wandb.restore(table_file_path,
-                                       run_path=args.wandb_query_eval_data_run_id)
+                                       args.wandb_query_eval_data_run_id)
             table_str = table_file.read()
             table_dict = json.loads(table_str)
             query_eval_df = pd.DataFrame(**table_dict)
