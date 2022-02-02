@@ -43,9 +43,6 @@ def get_args(arg_str: str = None):
                                    'uncertainty-test'])
     # paths
     path_args = parser.add_argument_group('paths setup')
-    path_args.add_argument('--d4rl-dataset-dir', type=Path,
-                           default=Path(os.path.join('~/.d4rl', 'datasets')),
-                           help="directory to store d4rl datasets")
     path_args.add_argument('--result-dir', type=Path,
                            default=Path(os.path.join(os.getcwd(), 'results')),
                            help="directory to store results")
@@ -152,10 +149,6 @@ def get_args(arg_str: str = None):
 def main():
     (args, job_args, path_args, wandb_args, dynamics_args,
      queries_args, uncertainty_args) = get_args()
-
-    # d4rl setup
-    os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = "1"
-    os.environ['D4RL_DATASET_DIR'] = str(args.d4rl_dataset_dir)
 
     if args.job == 'train-dynamics':
         config = BaseConfig(args, dynamics_args)
