@@ -1,4 +1,5 @@
 import torch
+from typing import Dict
 
 from .ff import FFDynamicsNetwork
 from .autoregressive import AgDynamicsNetwork
@@ -84,14 +85,15 @@ class EnsembleDynamicsNetwork:
 
         return next_obs, reward, done
 
-    def update(self, replay_buffer, update_count: int, batch_size: int):
+    def update(self, replay_buffers, update_count: int,
+               batch_size: int) -> Dict[str, Dict[str, float]]:
         loss = defaultdict(lambda: defaultdict(lambda: 0))
         for i in range(self.num_ensemble):
             _name = 'ensemble_{}'.format(i)
             dynamics = getattr(self, _name)
 
             for batch_i in range(update_count):
-                batch = replay_buffer[i].sample(batch_size)
+                batch = replay_buffers[i].sample(batch_size)
                 _loss = dynamics.update(batch.obs,
                                         batch.action,
                                         batch.next_obs,
@@ -99,10 +101,10 @@ class EnsembleDynamicsNetwork:
                 for k, v in _loss.items():
                     loss[_name][k] += v
 
-        # mean with batch count
-        for k in loss:
-            for _k, _v in loss[k].items():
-                loss[k][_k] = _v / update_count
+        # mean with update count
+        for ensemble_key in loss:
+            for loss_key in loss[ensemble_key]:
+                loss[ensemble_key][loss_key] /= update_count
         return loss
 
     @property

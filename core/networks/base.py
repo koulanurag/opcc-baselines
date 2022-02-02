@@ -6,6 +6,7 @@ class Base(nn.Module):
     def __init__(self, env_name, dataset_name, obs_size, action_size,
                  deterministic, prior_scale):
         super().__init__()
+        assert prior_scale >= 0, 'prior scale must be +ve'
         self._env_name = env_name
         self._dataset_name = dataset_name
         self._obs_size = obs_size

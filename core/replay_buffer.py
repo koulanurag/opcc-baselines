@@ -1,5 +1,3 @@
-import random
-import warnings
 from typing import NamedTuple
 
 import numpy as np
@@ -16,11 +14,7 @@ class BatchOutput(NamedTuple):
 
 class ReplayBuffer:
     def __init__(self, qlearning_dataset, device='cpu'):
-        self.dataset = {'observations': qlearning_dataset['observations'],
-                        'actions': qlearning_dataset['actions'],
-                        'rewards': qlearning_dataset['rewards'],
-                        'terminals': qlearning_dataset['terminals']}
-
+        self.dataset = qlearning_dataset
         self.__obs_size = self.dataset['observations'][0].shape[0]
         self.__action_size = self.dataset['actions'][0].shape[0]
         self.device = device

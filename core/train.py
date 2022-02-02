@@ -1,14 +1,14 @@
 import logging
 
+import numpy as np
 import opcc
 import torch
 import wandb
+from tqdm import tqdm
 
 from core.config import BaseConfig
 from core.replay_buffer import ReplayBuffer
 from core.utils import init_logger
-import numpy as np
-from tqdm import tqdm
 
 
 def train_dynamics(config: BaseConfig):
@@ -19,43 +19,40 @@ def train_dynamics(config: BaseConfig):
     network = config.get_uniform_dynamics_network()
     network.train()
 
-    # create replay buffers with BOOTSTRAP SAMPLING
+    # replay buffers
     dataset = opcc.get_qlearning_dataset(config.args.env_name,
                                          config.args.dataset_name)
 
     replay_buffers = {}
-    obs_mins, obs_maxs = [], []
-    reward_mins, reward_maxs = [], []
+    obs_min, obs_max = [], []
+    reward_min, reward_max = [], []
     for ensemble_i in tqdm(range(network.num_ensemble)):
-        _idxs = np.random.randint(0, len(dataset), size=len(dataset))
-        _dataset = {k: v[_idxs] for k, v in dataset.items()}
+        # bootstrap sampling
+        idxs = np.random.randint(0, len(dataset), size=len(dataset))
+        _dataset = {k: v[idxs] for k, v in dataset.items()}
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
         # get data bounds for clipping during evaluation
         observations = _dataset['observations']
-        obs_min = observations.min(axis=0).tolist()
-        obs_max = observations.max(axis=0).tolist()
-        rewards = _dataset['rewards']
-        reward_min = rewards.min(axis=0).tolist()
-        reward_max = rewards.max(axis=0).tolist()
+        obs_min.append(observations.min(axis=0).tolist())
+        obs_max.append(observations.max(axis=0).tolist())
 
-        obs_mins.append(obs_min)
-        obs_maxs.append(obs_max)
-        reward_mins.append(reward_min)
-        reward_maxs.append(reward_max)
+        rewards = _dataset['rewards']
+        reward_min.append(rewards.min(axis=0).tolist())
+        reward_max.append(rewards.max(axis=0).tolist())
 
     # setup network
-    network.set_obs_bound(obs_mins, obs_maxs)
-    network.set_reward_bound(reward_mins, reward_maxs)
+    network.set_obs_bound(obs_min, obs_max)
+    network.set_reward_bound(reward_min, reward_max)
     network = network.to(config.device)
 
     # train
     for update_i in range(0, config.args.update_count + 1,
                           config.args.log_interval):
         # estimate ensemble loss and update
-        loss: dict = network.update(replay_buffers,
-                                    update_count=config.args.log_interval,
-                                    batch_size=config.args.dynamics_batch_size)
+        loss = network.update(replay_buffers=replay_buffers,
+                              update_count=config.args.log_interval,
+                              batch_size=config.args.dynamics_batch_size)
         # log
         _msg = '#{:<10}'.format(update_i)
         for k1, v1 in loss.items():

@@ -9,11 +9,16 @@ from .utils import weights_init, is_terminal
 class FFDynamicsNetwork(Base):
     """
     Feed-forward dynamics network
+
+    Given an observation and action, the network predicts delta observation
+    and reward. Thereafter, delta observation is added to the input observation
+    to retrieve next observation
+
     """
 
     def __init__(self, env_name, dataset_name, obs_size, action_size,
-                 hidden_size, deterministic=True,
-                 activation_function='relu', lr=1e-3, prior_scale=0):
+                 hidden_size, deterministic=True, activation_function='relu',
+                 lr=1e-3, prior_scale=0):
         Base.__init__(self,
                       env_name=env_name,
                       dataset_name=dataset_name,
@@ -21,7 +26,6 @@ class FFDynamicsNetwork(Base):
                       action_size=action_size,
                       deterministic=deterministic,
                       prior_scale=prior_scale)
-        assert prior_scale >= 0, 'prior scale must be +ve'
 
         self.act_fn = getattr(F, activation_function)
         self.fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
