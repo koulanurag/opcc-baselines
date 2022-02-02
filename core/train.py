@@ -28,7 +28,8 @@ def train_dynamics(config: BaseConfig):
     reward_min, reward_max = [], []
     for ensemble_i in tqdm(range(network.num_ensemble)):
         # bootstrap sampling
-        idxs = np.random.randint(0, len(dataset), size=len(dataset))
+        idxs = np.random.randint(0, len(dataset['observations']),
+                                 size=len(dataset['observations']))
         _dataset = {k: v[idxs] for k, v in dataset.items()}
         replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
 
