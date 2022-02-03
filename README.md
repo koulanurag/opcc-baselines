@@ -3,7 +3,7 @@
 Code for baselines presented in research paper "Offline Policy Comparison with Confidence:
 Baseline and Benchmarks"
 
-![Python package](https://github.com/koulanurag/opcc-baselines/workflows/Python%20package/badge.svg)
+[![Python application](https://github.com/koulanurag/opcc-baselines/actions/workflows/python-app.yml/badge.svg)](https://github.com/koulanurag/opcc-baselines/actions/workflows/python-app.yml)
 ![License](https://img.shields.io/github/license/koulanurag/opcc-baselines)
 
 ## Installation
