@@ -10,9 +10,18 @@ class AgDynamicsNetwork(Base):
     """
     Autoregressive dynamics network
 
-    Given an observation and action, the network predicts delta observation
-    and reward. Thereafter, delta observation is added to the input observation
-    to retrieve next observation
+    Given a d-dimensional observation and action(n), the network predicts
+    delta observation and reward. Thereafter, delta observation is added
+    to the input observation to retrieve next observation.
+
+    This network makes "d" amount of forward passes to predict the next
+    observation. In each pass, it predicts the ith dimension of next
+    observation by inputting the current observation, action, one
+    hot-representation encoding to indicate the "d" dimension to be predicted
+    and the next-observation predicted so far i.e. it receives (3 * d + n)
+    size input.
+
+    Reference : https://arxiv.org/abs/2104.13877
     """
 
     def __init__(self, env_name, dataset_name, obs_size, action_size,
@@ -48,7 +57,7 @@ class AgDynamicsNetwork(Base):
         self.max_logvar = nn.Parameter(max_logvar, requires_grad=False)
         self.min_logvar = nn.Parameter(min_logvar, requires_grad=False)
 
-        # default bounds
+        # default bounds for clipping
         self._obs_max = torch.ones(obs_size, dtype=torch.float) * torch.inf
         self._obs_max = nn.Parameter(self._obs_max, requires_grad=False)
         self._obs_min = torch.ones(obs_size, dtype=torch.float) * -torch.inf
@@ -58,6 +67,17 @@ class AgDynamicsNetwork(Base):
         self._reward_max = nn.Parameter(self._reward_max, requires_grad=False)
         self._reward_min = torch.tensor(-torch.inf, dtype=torch.float)
         self._reward_min = nn.Parameter(self._reward_min, requires_grad=False)
+
+        # default normalization attributes: only used during step()
+        _obs_mean = torch.zeros(obs_size, dtype=torch.float)
+        _obs_std = torch.ones(obs_size, dtype=torch.float)
+        self._obs_mean = nn.Parameter(_obs_mean, requires_grad=False)
+        self._obs_std = nn.Parameter(_obs_std, requires_grad=False)
+
+        _action_mean = torch.zeros(action_size, dtype=torch.float)
+        _action_std = torch.ones(action_size, dtype=torch.float)
+        self._action_mean = nn.Parameter(_action_mean, requires_grad=False)
+        self._action_std = nn.Parameter(_action_std, requires_grad=False)
 
         # create optimizer with no prior parameters
         non_prior_params = [param for name, param in self.named_parameters()
@@ -108,6 +128,7 @@ class AgDynamicsNetwork(Base):
         one_hot = torch.zeros((batch_size, self.obs_size + 1),
                               device=obs.device)  # create obs
         one_hot[:, 0] = 1.0
+
         reward, mu, log_var = None, None, None
         for obs_i in range(self.obs_size + 1):  # add dimension for reward
 
@@ -116,11 +137,12 @@ class AgDynamicsNetwork(Base):
 
             # ith dimension prediction
             mu_i, log_var_logit_i = self._logits(_obs, action)
-            if self.constant_prior:
+            if self.prior_scale > 0:
                 with torch.no_grad():
                     _mu_i, _log_var_logit_i = self._prior_logits(_obs, action)
                     mu_i += self.prior_scale * _mu_i
                     log_var_logit_i += self.prior_scale * _log_var_logit_i
+
             log_var_i = (self.max_logvar
                          - F.softplus(self.max_logvar - log_var_logit_i))
             log_var_i = (self.min_logvar
@@ -142,7 +164,7 @@ class AgDynamicsNetwork(Base):
 
             # clip
             if obs_i < self.obs_size:
-                # output is the delta observation
+                # prediction are delta observation
                 next_obs[:, obs_i] = output + obs[:, obs_i]
                 if self.is_obs_clip_enabled:
                     next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i],
@@ -161,9 +183,15 @@ class AgDynamicsNetwork(Base):
         return next_obs, reward, mu, log_var
 
     def step(self, obs, action):
-        # Todo: normalize obs. and action
+        # normalize obs. and action
+        obs = self.normalize_obs(obs)
+        action = self.normalize_action(action)
+
         next_obs, reward, mu, log_var = self.forward(obs, action)
-        # Todo: de-normalize obs. and action
+
+        # denormalize next-obs
+        # This must be done before determining terminal state
+        next_obs = self.denormalize_obs(next_obs)
         done = is_terminal(self.env_name, next_obs.cpu().detach())
         return next_obs, reward, done
 
@@ -230,6 +258,26 @@ class AgDynamicsNetwork(Base):
         reward_max = torch.tensor(reward_max)
         self._reward_min = nn.Parameter(reward_min, requires_grad=False)
         self._reward_max = nn.Parameter(reward_max, requires_grad=False)
+
+    def set_obs_norm(self, obs_mean, obs_std):
+        assert len(obs_mean) == self.obs_size
+        assert len(obs_std) == self.obs_size
+
+        obs_mean = torch.tensor(obs_mean)
+        obs_std = torch.tensor(obs_std)
+
+        self._obs_mean = nn.Parameter(obs_mean, requires_grad=False)
+        self._obs_std = nn.Parameter(obs_std, requires_grad=False)
+
+    def set_action_norm(self, action_mean, action_std):
+        assert len(action_mean) == self.action_size
+        assert len(action_std) == self.action_size
+
+        action_mean = torch.tensor(action_mean)
+        action_std = torch.tensor(action_std)
+
+        self._action_mean = nn.Parameter(action_mean, requires_grad=False)
+        self._action_std = nn.Parameter(action_std, requires_grad=False)
 
     def clip_obs(self, obs, dim: int):
         assert 0 <= dim < self.obs_size
