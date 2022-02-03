@@ -87,6 +87,7 @@ class FFDynamicsNetwork(Base):
 
         return super(FFDynamicsNetwork, self).to(device, *args, **kwargs)
 
+    @torch.no_grad()
     def _prior_logits(self, obs, action):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'
@@ -96,6 +97,7 @@ class FFDynamicsNetwork(Base):
         hidden = self.act_fn(self.prior_fc2(hidden))
         hidden = self.act_fn(self.prior_fc3(hidden))
         output = self.prior_fc4(hidden)
+        output = torch.tanh(output)
 
         mu = output[:, :self.obs_size + 1]
         log_var_logit = output[:, self.obs_size + 1:]
@@ -117,10 +119,9 @@ class FFDynamicsNetwork(Base):
     def forward(self, obs, action):
         mu, log_var_logit = self._logits(obs, action)
         if self.prior_scale > 0:
-            with torch.no_grad():
-                _mu, _log_var_logit = self._prior_logits(obs, action)
-                mu += self.prior_scale * _mu
-                log_var_logit += self.prior_scale * _log_var_logit
+            _mu, _log_var_logit = self._prior_logits(obs, action)
+            mu += self.prior_scale * _mu.detach()
+            log_var_logit += self.prior_scale * _log_var_logit.detach()
         log_var = self.max_logvar - F.softplus(self.max_logvar - log_var_logit)
         log_var = self.min_logvar + F.softplus(log_var - self.min_logvar)
 

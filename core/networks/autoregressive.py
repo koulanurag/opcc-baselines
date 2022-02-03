@@ -42,10 +42,10 @@ class AgDynamicsNetwork(Base):
         self.fc3 = nn.Linear(hidden_size, hidden_size)
         self.fc4 = nn.Linear(hidden_size, 2)
 
-        self.prior_fc1 = nn.Linear(self._input_size, hidden_size)
+        self.prior_fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
         self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
         self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
-        self.prior_fc4 = nn.Linear(hidden_size, 2)
+        self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
         for name, param in self.named_parameters():
             if 'prior' in name:
                 param.requires_grad = False
@@ -95,6 +95,7 @@ class AgDynamicsNetwork(Base):
 
         return super(AgDynamicsNetwork, self).to(device, *args, **kwargs)
 
+    @torch.no_grad()
     def _prior_logits(self, obs, action):
         assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
         assert len(action.shape) == 2, 'expected (N x action-size) actions'
@@ -104,9 +105,10 @@ class AgDynamicsNetwork(Base):
         hidden = self.act_fn(self.prior_fc2(hidden))
         hidden = self.act_fn(self.prior_fc3(hidden))
         output = self.prior_fc4(hidden)
+        output = torch.tanh(output)
 
-        mu = output[:, 0]
-        log_var_logit = output[:, 1]
+        mu = output[:, :self.obs_size + 1]
+        log_var_logit = output[:, self.obs_size + 1:]
         return mu, log_var_logit
 
     def _logits(self, obs, action):
@@ -129,6 +131,12 @@ class AgDynamicsNetwork(Base):
                               device=obs.device)  # create obs
         one_hot[:, 0] = 1.0
 
+        # estimate prior
+        prior_mu, prior_log_var_logit = self._prior_logits(obs, action)
+        prior_mu.detach_()
+        prior_log_var_logit.detach_()
+
+        # predictions
         reward, mu, log_var = None, None, None
         for obs_i in range(self.obs_size + 1):  # add dimension for reward
 
@@ -137,11 +145,8 @@ class AgDynamicsNetwork(Base):
 
             # ith dimension prediction
             mu_i, log_var_logit_i = self._logits(_obs, action)
-            if self.prior_scale > 0:
-                with torch.no_grad():
-                    _mu_i, _log_var_logit_i = self._prior_logits(_obs, action)
-                    mu_i += self.prior_scale * _mu_i
-                    log_var_logit_i += self.prior_scale * _log_var_logit_i
+            mu_i += self.prior_scale * prior_mu[:, obs_i]
+            log_var_logit_i += self.prior_scale * prior_log_var_logit[:, obs_i]
 
             log_var_i = (self.max_logvar
                          - F.softplus(self.max_logvar - log_var_logit_i))
