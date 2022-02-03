@@ -10,6 +10,9 @@ ACTION_SCALE = defaultdict(lambda: defaultdict(lambda: 1))
 
 
 class BaseConfig(object):
+    """
+    Base configuration for experiments
+    """
     def __init__(self, args, dynamics_args):
         self.__args = args
 
@@ -52,24 +55,15 @@ class BaseConfig(object):
     def new_game(self):
         return gym.make('{}'.format(self.args.env_name))
 
-    def new_vectorized_game(self, num_envs=1):
-        from gym.vector.sync_vector_env import SyncVectorEnv
-        envs = SyncVectorEnv([self.new_game for _ in range(num_envs)])
-        return envs
-
     @property
     def args(self):
         return self.__args
 
     @property
-    def action_scale(self):
-        return ACTION_SCALE[self.__args.case][self.__args.env_name]
-
-    @property
     def network_path(self) -> os.path:
         return os.path.join(self.exp_dir_path, 'dynamics_network.p')
 
-    def evaluate_queries_path(self, args, queries_args):
+    def evaluate_queries_path(self, args, queries_args) -> os.path:
         # hyper-parameters hash for experiment saving
         sorted_args = sorted(queries_args._group_actions,
                              key=lambda x: x.dest)

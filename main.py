@@ -167,7 +167,6 @@ def main():
             assert args.wandb_dynamics_run_id is not None, \
                 'wandb-dynamics-run-id cannot be None'
             run = wandb.Api().run(args.wandb_dynamics_run_id)
-            assert args.env_name == run.config['env_name']
 
             # preserve original dynamics args
             for _arg in dynamics_args._group_actions:
