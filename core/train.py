@@ -15,58 +15,55 @@ def train_dynamics(config: BaseConfig):
     # create logger
     init_logger(config.logs_dir_path, 'train_dynamics')
 
-    # create network
-    network = config.get_uniform_dynamics_network()
-    network.train()
-
-    # replay buffers
-    replay_buffers = {}
-    obs_min, obs_max = [], []
-    reward_min, reward_max = [], []
-    obs_mean, obs_std = [], []
-    action_mean, action_std = [], []
-
+    # download and normalize dataset
     dataset = opcc.get_qlearning_dataset(config.args.env_name,
                                          config.args.dataset_name)
     dataset_size = len(dataset['observations'])
 
-    for ensemble_i in tqdm(range(network.num_ensemble),
+    if config.args.normalize:
+        obs_mean = dataset['observations'].mean(axis=0).tolist()
+        obs_std = (dataset['observations'].std(axis=0) + 1e-5).tolist()
+        action_mean = dataset['actions'].mean(axis=0).tolist()
+        action_std = (dataset['actions'].std(axis=0) + 1e-5).tolist()
+
+        dataset['observations'] = ((dataset['observations'] - obs_mean)
+                                   / obs_std)
+        dataset['next_observations'] = ((dataset['next_observations']
+                                         - obs_mean) / obs_std)
+        dataset['actions'] = (dataset['actions'] - action_mean) / action_std
+    else:
+        obs_mean = np.zeros(dataset['observations'][0].shape).tolist()
+        obs_std = np.ones(dataset['observations'][0].shape).tolist()
+        action_mean = np.zeros(dataset['actions'][0].shape).tolist()
+        action_std = np.ones(dataset['actions'][0].shape).tolist()
+
+    # create replay buffers
+    replay_buffers = {}
+    obs_min, obs_max = [], []
+    reward_min, reward_max = [], []
+    for ensemble_i in tqdm(range(config.args.num_ensemble),
                            desc="bootstrap sampling"):
         # bootstrap sampling
         idxs = np.random.randint(0, dataset_size, size=dataset_size)
-        _dataset = {k: v[idxs].copy() for k, v in dataset.items()}
-
-        if config.args.normalize:
-            _obs = _dataset['observations']
-            _act = _dataset['actions']
-            obs_mean.append(_obs.mean(axis=0).tolist())
-            obs_std.append((_obs.std(axis=0) + 1e-5).tolist())
-            action_mean.append(_act.mean(axis=0).tolist())
-            action_std.append((_act.std(axis=0) + 1e-5).tolist())
-
-            _dataset['observations'] = (_dataset['observations']
-                                        - obs_mean[-1]) / obs_std[-1]
-            _dataset['next_observations'] = (_dataset['next_observations']
-                                             - obs_mean[-1]) / obs_std[-1]
-            _dataset['actions'] = (_act - action_mean[-1]) / action_std[-1]
 
         # get data bounds for clipping during evaluation
-        observations = _dataset['observations']
+        observations = dataset['observations'][idxs]
         obs_min.append(observations.min(axis=0).tolist())
         obs_max.append(observations.max(axis=0).tolist())
-        rewards = _dataset['rewards']
+        rewards = dataset['rewards'][idxs]
         reward_min.append(rewards.min(axis=0).tolist())
         reward_max.append(rewards.max(axis=0).tolist())
 
-        replay_buffers[ensemble_i] = ReplayBuffer(_dataset, config.device)
+        replay_buffers[ensemble_i] = ReplayBuffer(dataset, idxs, config.device)
 
-    # setup network
+    # create and setup network
+    network = config.get_uniform_dynamics_network()
     network.set_obs_bound(obs_min, obs_max)
     network.set_reward_bound(reward_min, reward_max)
-    if config.args.normalize:
-        network.set_obs_norm(obs_mean, obs_std)
-        network.set_action_norm(action_mean, action_std)
+    network.set_obs_norm(obs_mean, obs_std)
+    network.set_action_norm(action_mean, action_std)
     network = network.to(config.device)
+    network.train()
 
     # train
     for update_i in range(0, config.args.update_count + 1,

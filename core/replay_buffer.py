@@ -13,19 +13,21 @@ class BatchOutput(NamedTuple):
 
 
 class ReplayBuffer:
-    def __init__(self, qlearning_dataset, device='cpu'):
+    def __init__(self, qlearning_dataset, bootstrap_idxs, device='cpu'):
         self.dataset = qlearning_dataset
         self.__obs_size = self.dataset['observations'][0].shape[0]
         self.__action_size = self.dataset['actions'][0].shape[0]
         self.device = device
+        self.bootstrap_idxs = bootstrap_idxs
 
     def sample(self, n: int) -> BatchOutput:
         idxs = np.random.randint(low=0, high=self.size, size=n)
-        obs = self.dataset['observations'][idxs]
-        action = self.dataset['actions'][idxs]
-        next_obs = self.dataset['observations'][idxs]
-        reward = self.dataset['rewards'][idxs]
-        terminal = self.dataset['terminals'][idxs]
+        batch_idxs = self.bootstrap_idxs[idxs]
+        obs = self.dataset['observations'][batch_idxs]
+        action = self.dataset['actions'][batch_idxs]
+        next_obs = self.dataset['observations'][batch_idxs]
+        reward = self.dataset['rewards'][batch_idxs]
+        terminal = self.dataset['terminals'][batch_idxs]
 
         obs = torch.tensor(obs, device=self.device, dtype=torch.float)
         action = torch.tensor(action, device=self.device, dtype=torch.float)
