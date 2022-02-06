@@ -61,8 +61,8 @@ def get_args(arg_str: str = None):
                                                      'dynamics training')
     dynamics_resume_args.add_argument('--resume', choices=['local', 'wandb'],
                                       help='resumes training')
-    dynamics_resume_args.add_argument('--wandb-run-id',
-                                      help="wandb run id for restoring "
+    dynamics_resume_args.add_argument('--wandb-run-path',
+                                      help="wandb run path for restoring "
                                            "dynamics training. It's used with "
                                            "{--resume wandb}")
     # dynamics args
@@ -364,10 +364,9 @@ def _train_dynamics(args, job_args, dynamics_args):
                          dir=args.wandb_dir,
                          project=args.wandb_project_name + '-' + args.job,
                          settings=wandb.Settings(start_method="thread"),
-                         id=(args.wandb_run_id if dynamics_args.resume is not
-                                                  None else None),
-                         resume=(True if dynamics_args.resume is not None
-                                 else False))
+                         id=(args.wandb_run_id.split('/')[-1]
+                             if args.resume is not None else None),
+                         resume=(True if args.resume is not None else False))
 
         # config restoration
         if args.resume is not None and args.resume == 'wandb':
