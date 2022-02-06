@@ -56,6 +56,15 @@ def get_args(arg_str: str = None):
     wandb_args.add_argument('--wandb-dir', default=os.path.join('~/'),
                             help="directory Path to store wandb data")
 
+    # dynamics resumption args
+    dynamics_resume_args = parser.add_argument_group('args for resuming '
+                                                     'dynamics training')
+    dynamics_resume_args.add_argument('--resume', choices=['local', 'wandb'],
+                                      help='resumes training')
+    dynamics_resume_args.add_argument('--wandb-run-id',
+                                      help="wandb run id for restoring "
+                                           "dynamics training. It's used with "
+                                           "{--resume wandb}")
     # dynamics args
     dynamics_args = parser.add_argument_group('args for training dynamics')
     dynamics_args.add_argument('--env-name', default='HalfCheetah-v2',
@@ -147,96 +156,9 @@ def main():
      queries_args, uncertainty_args) = get_args()
 
     if args.job == 'train-dynamics':
-        config = BaseConfig(args, dynamics_args)
-        if args.use_wandb:  # used for experiment tracking
-            wandb.init(job_type=args.job,
-                       dir=args.wandb_dir,
-                       project=args.wandb_project_name + '-' + args.job,
-                       settings=wandb.Settings(start_method="thread"))
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in job_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in dynamics_args._group_actions})
-        train_dynamics(config)
-
+        _train_dynamics(args, job_args, dynamics_args)
     elif args.job == 'evaluate-queries':
-        # set-up config
-        if args.restore_dynamics_from_wandb:
-
-            # get remote config from wandb
-            assert args.wandb_dynamics_run_id is not None, \
-                'wandb-dynamics-run-id cannot be None'
-            run = wandb.Api().run(args.wandb_dynamics_run_id)
-
-            # preserve original dynamics args
-            for _arg in dynamics_args._group_actions:
-                setattr(args, _arg.dest, run.config[_arg.dest])
-                setattr(dynamics_args, _arg.dest, run.config[_arg.dest])
-
-            # download dynamics
-            config = BaseConfig(args, dynamics_args)
-            root = os.path.dirname(config.checkpoint_path)
-            name = os.path.basename(config.checkpoint_path)
-            os.makedirs(root, exist_ok=True)
-            wandb.restore(name=name, run_path=args.wandb_dynamics_run_id,
-                          replace=True, root=root)
-        else:
-            config = BaseConfig(args, dynamics_args)
-
-        # setup experiment tracking
-        if args.use_wandb:
-            wandb.init(job_type=args.job,
-                       dir=args.wandb_dir,
-                       project=args.wandb_project_name + '-' + args.job,
-                       settings=wandb.Settings(start_method="thread"))
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in job_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in dynamics_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in queries_args._group_actions})
-
-        # dynamics setup
-        assert os.path.exists(config.checkpoint_path), \
-            'dynamics network not found: {}'.format(config.checkpoint_path)
-        network = config.get_uniform_dynamics_network()
-        state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
-        print('state check-point update:{}'.format(state_dict['update']))
-        network.load_state_dict(state_dict['network'])
-
-        # set clipping flags
-        if config.args.clip_obs:
-            network.enable_obs_clip()
-        if config.args.clip_reward:
-            network.enable_reward_clip()
-
-        network.eval()
-        network = network.to(config.args.device)
-
-        # query-evaluation
-        queries = opcc.get_queries(args.env_name)
-        predicted_df = evaluate_queries(queries=queries,
-                                        network=network,
-                                        runs=args.eval_runs,
-                                        batch_size=args.eval_batch_size,
-                                        device=args.device,
-                                        mixture=args.mixture)
-        query_eval_path = config.evaluate_queries_path(args, queries_args)
-        predicted_df.to_pickle(query_eval_path)
-
-        # log data on wandb
-        if args.use_wandb:
-            wandb.run.summary["model-check-point"] = state_dict['update']
-
-            table = wandb.Table(dataframe=predicted_df)
-            wandb.log({'query-eval-data': table})
-            wandb.log({"mean/q-value-comparison-a":
-                           scatter(table, x="pred_a_mean", y="return_a",
-                                   title="q-value-comparison-a")})
-            wandb.log({"mean/q-value-comparison-b":
-                           scatter(table, x="pred_b_mean", y="return_b",
-                                   title="q-value-comparison-b")})
-
+        _evaluate_queries(args, job_args, dynamics_args, queries_args)
     elif args.job == 'uncertainty-test':
         query_eval_df = None
         if args.use_wandb:
@@ -352,6 +274,134 @@ def main():
 
     else:
         raise NotImplementedError('{} job is not implemented'.format(args.job))
+
+
+def _evaluate_queries(args, job_args, dynamics_args, queries_args):
+    # set-up config
+    if args.restore_dynamics_from_wandb:
+
+        # get remote config from wandb
+        assert args.wandb_dynamics_run_id is not None, \
+            'wandb-dynamics-run-id cannot be None'
+        run = wandb.Api().run(args.wandb_dynamics_run_id)
+
+        # preserve original dynamics args
+        for _arg in dynamics_args._group_actions:
+            setattr(args, _arg.dest, run.config[_arg.dest])
+            setattr(dynamics_args, _arg.dest, run.config[_arg.dest])
+
+        # download dynamics
+        config = BaseConfig(args, dynamics_args)
+        root = os.path.dirname(config.checkpoint_path)
+        name = os.path.basename(config.checkpoint_path)
+        os.makedirs(root, exist_ok=True)
+        wandb.restore(name=name, run_path=args.wandb_dynamics_run_id,
+                      replace=True, root=root)
+    else:
+        config = BaseConfig(args, dynamics_args)
+
+    # setup experiment tracking
+    if args.use_wandb:
+        wandb.init(job_type=args.job,
+                   dir=args.wandb_dir,
+                   project=args.wandb_project_name + '-' + args.job,
+                   settings=wandb.Settings(start_method="thread"))
+        wandb.config.update({x.dest: vars(args)[x.dest]
+                             for x in job_args._group_actions})
+        wandb.config.update({x.dest: vars(args)[x.dest]
+                             for x in dynamics_args._group_actions})
+        wandb.config.update({x.dest: vars(args)[x.dest]
+                             for x in queries_args._group_actions})
+
+    # dynamics setup
+    assert os.path.exists(config.checkpoint_path), \
+        'dynamics network not found: {}'.format(config.checkpoint_path)
+    network = config.get_uniform_dynamics_network()
+    state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
+    print('state check-point update:{}'.format(state_dict['update']))
+    network.load_state_dict(state_dict['network'])
+
+    # set clipping flags
+    if config.args.clip_obs:
+        network.enable_obs_clip()
+    if config.args.clip_reward:
+        network.enable_reward_clip()
+
+    network.eval()
+    network = network.to(config.args.device)
+
+    # query-evaluation
+    queries = opcc.get_queries(args.env_name)
+    predicted_df = evaluate_queries(queries=queries,
+                                    network=network,
+                                    runs=args.eval_runs,
+                                    batch_size=args.eval_batch_size,
+                                    device=args.device,
+                                    mixture=args.mixture)
+    query_eval_path = config.evaluate_queries_path(args, queries_args)
+    predicted_df.to_pickle(query_eval_path)
+
+    # log data on wandb
+    if args.use_wandb:
+        wandb.run.summary["model-check-point"] = state_dict['update']
+
+        table = wandb.Table(dataframe=predicted_df)
+        wandb.log({'query-eval-data': table})
+        wandb.log({"mean/q-value-comparison-a":
+                       scatter(table, x="pred_a_mean", y="return_a",
+                               title="q-value-comparison-a")})
+        wandb.log({"mean/q-value-comparison-b":
+                       scatter(table, x="pred_b_mean", y="return_b",
+                               title="q-value-comparison-b")})
+
+
+def _train_dynamics(args, job_args, dynamics_args):
+    config = BaseConfig(args, dynamics_args)
+
+    # enable wandb for experiment tracking
+    if args.use_wandb:
+        run = wandb.init(job_type=args.job,
+                         dir=args.wandb_dir,
+                         project=args.wandb_project_name + '-' + args.job,
+                         settings=wandb.Settings(start_method="thread"),
+                         id=(args.wandb_run_id if dynamics_args.resume is not
+                                                  None else None),
+                         resume=(True if dynamics_args.resume is not None
+                                 else False))
+
+        # config restoration
+        if args.resume is not None and args.resume == 'wandb':
+            for _arg in job_args._group_actions:
+                setattr(args, _arg.dest, run.config[_arg.dest])
+                setattr(job_args, _arg.dest, run.config[_arg.dest])
+            for _arg in dynamics_args._group_actions:
+                setattr(args, _arg.dest, run.config[_arg.dest])
+                setattr(dynamics_args, _arg.dest, run.config[_arg.dest])
+        else:
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in job_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in dynamics_args._group_actions})
+
+    # checkpoint restoration
+    if args.resume is not None:
+        if args.resume == 'wandb':
+            # download checkpoint
+            root = os.path.dirname(config.checkpoint_path)
+            name = os.path.basename(config.checkpoint_path)
+            os.makedirs(root, exist_ok=True)
+            wandb.restore(name=name, run_path=args.wandb_run_id,
+                          replace=True, root=root)
+        elif args.resume == 'local':
+            assert os.path.exists(config.checkpoint_path), \
+                'no checkpoint found  @ {}'.format(config.checkpoint_path)
+        else:
+            raise ValueError('invalid value for --resume')
+
+    train_dynamics(config)
+
+    if args.use_wandb:
+        wandb.finish()
 
 
 if __name__ == '__main__':

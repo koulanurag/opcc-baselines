@@ -13,7 +13,8 @@ from core.utils import init_logger
 
 def train_dynamics(config: BaseConfig):
     # create logger
-    init_logger(config.logs_dir_path, 'train_dynamics')
+    init_logger(config.logs_dir_path, 'train_dynamics',
+                file_mode='a' if config.args.resume is not None else 'w')
 
     # download and normalize dataset
     dataset = opcc.get_qlearning_dataset(config.args.env_name,
@@ -58,15 +59,21 @@ def train_dynamics(config: BaseConfig):
 
     # create and setup network
     network = config.get_uniform_dynamics_network()
-    network.set_obs_bound(obs_min, obs_max)
-    network.set_reward_bound(reward_min, reward_max)
-    network.set_obs_norm(obs_mean, obs_std)
-    network.set_action_norm(action_mean, action_std)
+    start_count = 0
+    if config.args.resume:
+        state_dict = torch.load(config.checkpoint_path, torch.device('cpu'))
+        network.load_state_dict(state_dict['network'])
+        start_count = state_dict['update'] + config.args.log_interval
+    else:
+        network.set_obs_bound(obs_min, obs_max)
+        network.set_reward_bound(reward_min, reward_max)
+        network.set_obs_norm(obs_mean, obs_std)
+        network.set_action_norm(action_mean, action_std)
     network = network.to(config.device)
     network.train()
 
     # train
-    for update_i in range(0, config.args.update_count + 1,
+    for update_i in range(start_count, config.args.update_count + 1,
                           config.args.log_interval):
         # estimate ensemble loss and update
         loss = network.update(replay_buffers=replay_buffers,

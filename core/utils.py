@@ -9,7 +9,7 @@ import torch
 from rliable import metrics
 
 
-def init_logger(base_path: str, name: str):
+def init_logger(base_path: str, name: str, file_mode='w'):
     formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s]'
                                   '[%(filename)s>%(funcName)s] => %(message)s')
     file_path = os.path.join(base_path, name + '.log')
@@ -18,7 +18,7 @@ def init_logger(base_path: str, name: str):
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    handler = logging.FileHandler(file_path, mode='w')
+    handler = logging.FileHandler(file_path, mode=file_mode)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
