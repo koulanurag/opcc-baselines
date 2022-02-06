@@ -4,8 +4,8 @@ import os
 import random
 from pathlib import Path
 
-import opcc
 import numpy as np
+import opcc
 import pandas as pd
 import torch
 import wandb
@@ -13,8 +13,8 @@ from wandb.plot import scatter
 
 from core.config import BaseConfig
 from core.train import train_dynamics
-from core.uncertainty import ensemble_voting as ev
 from core.uncertainty import confidence_interval as ci
+from core.uncertainty import ensemble_voting as ev
 from core.utils import evaluate_queries
 
 
