@@ -1,12 +1,12 @@
 import logging
 import os
+from typing import List
 
 import numpy as np
+import opcc
 import pandas as pd
 import torch
-import opcc
 from rliable import metrics
-from typing import List
 
 
 def init_logger(base_path: str, name: str):

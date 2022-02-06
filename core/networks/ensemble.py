@@ -1,11 +1,12 @@
-import torch
+from collections import defaultdict
 from typing import Dict
 
-from .ff import FFDynamicsNetwork
-from .autoregressive import AgDynamicsNetwork
-from gym.utils import seeding
 import numpy as np
-from collections import defaultdict
+import torch
+from gym.utils import seeding
+
+from .autoregressive import AgDynamicsNetwork
+from .ff import FFDynamicsNetwork
 
 
 class EnsembleDynamicsNetwork:
