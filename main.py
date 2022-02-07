@@ -151,131 +151,6 @@ def get_args(arg_str: str = None):
            dynamics_args, queries_args, uncertain_args
 
 
-def main():
-    (args, job_args, path_args, wandb_args, dynamics_args,
-     queries_args, uncertainty_args) = get_args()
-
-    if args.job == 'train-dynamics':
-        _train_dynamics(args, job_args, dynamics_args)
-    elif args.job == 'evaluate-queries':
-        _evaluate_queries(args, job_args, dynamics_args, queries_args)
-    elif args.job == 'uncertainty-test':
-        query_eval_df = None
-        if args.use_wandb:
-            wandb.init(job_type=args.job,
-                       dir=args.wandb_dir,
-                       project=args.wandb_project_name + '-' + args.job,
-                       settings=wandb.Settings(start_method="thread"))
-
-        # restore query evaluation data
-        if args.restore_query_eval_data_from_wandb:
-            assert args.wandb_query_eval_data_run_id is not None, \
-                'wandb-query-eval-data-run-id cannot be None'
-            run = wandb.Api().run(args.wandb_query_eval_data_run_id)
-            remote_config = run.config
-            assert args.env_name == remote_config['env_name']
-
-            # preserve original dynamics args
-            for _arg in dynamics_args._group_actions:
-                setattr(args, _arg.dest, remote_config[_arg.dest])
-                setattr(dynamics_args, _arg.dest, remote_config[_arg.dest])
-
-            # preserve original query eval args
-            for _arg in queries_args._group_actions:
-                setattr(args, _arg.dest, remote_config[_arg.dest])
-                setattr(queries_args, _arg.dest, remote_config[_arg.dest])
-
-            # download query-evaluation data
-            table_file_path = run.summary.get('query-eval-data').get("path")
-            table_file = wandb.restore(table_file_path,
-                                       args.wandb_query_eval_data_run_id)
-            table_str = table_file.read()
-            table_dict = json.loads(table_str)
-            query_eval_df = pd.DataFrame(**table_dict)
-
-        config = BaseConfig(args, dynamics_args)
-        if query_eval_df is None:
-            query_eval_path = config.evaluate_queries_path(args, queries_args)
-            query_eval_df = pd.read_pickle(query_eval_path)
-
-        # ################
-        # uncertainty-test
-        # ################
-
-        if config.args.uncertainty_test_type == 'ensemble-voting':
-            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ev(
-                query_eval_df,
-                ensemble_size_interval=10,
-                num_ensemble=config.args.num_ensemble,
-                confidence_interval=0.01)
-        elif config.args.uncertainty_test_type == 'paired-confidence-interval':
-            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
-                query_eval_df,
-                ensemble_size_interval=10,
-                num_ensemble=config.args.num_ensemble,
-                step=0.1,
-                paired=True)
-        elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
-            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
-                query_eval_df,
-                ensemble_size_interval=10,
-                num_ensemble=config.args.num_ensemble,
-                step=0.1,
-                paired=False)
-        else:
-            raise NotImplementedError(
-                '{} is not implemented'.format(config.args.uncetainty_test))
-
-        # setup for saving data on wandb
-        if args.use_wandb:
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in job_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in dynamics_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in queries_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in uncertainty_args._group_actions})
-
-            ensemble_df_table = wandb.Table(dataframe=ensemble_df)
-            horizon_df_table = wandb.Table(dataframe=horizon_df)
-            wandb.log({'ensemble-data': ensemble_df_table,
-                       'horizon-data': horizon_df_table,
-                       'ensemble-rpp-data': embl_rpp_df,
-                       'horizon-rpp-data': hzn_rpp_df})
-            if args.uncertainty_test_type == 'ensemble-voting':
-                threshold_name = 'confidence_threshold'
-            else:
-                threshold_name = 'confidence_level'
-            for category, _category_df in [('ensemble_count', ensemble_df),
-                                           ('horizon', horizon_df)]:
-                categories = _category_df[category].unique()
-                conf_threshold = _category_df[threshold_name].unique()
-                categories.sort()
-                conf_threshold.sort()
-                ys = {'accuracy': [], 'abstain': [], 'abstain_count': []}
-                for cat in categories:
-                    _filter = _category_df[category] == cat
-                    _sub_df = _category_df[_filter].sort_values(
-                        by=[threshold_name])
-                    ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
-                    ys['abstain'].append(_sub_df['abstain'].values.tolist())
-                    ys['abstain_count'].append(
-                        _sub_df['abstain_count'].values.tolist())
-
-                for key, val in ys.items():
-                    _plot = wandb.plot.line_series(
-                        xs=conf_threshold,
-                        ys=val,
-                        keys=["{}:{}".format(category, e) for e in categories],
-                        title='{}-{}'.format(category, key),
-                        xname="confidence-threshold")
-                    wandb.log({'{}-{}'.format(category, key): _plot})
-
-    else:
-        raise NotImplementedError('{} job is not implemented'.format(args.job))
-
-
 def _evaluate_queries(args, job_args, dynamics_args, queries_args):
     # set-up config
     if args.restore_dynamics_from_wandb:
@@ -405,6 +280,131 @@ def _train_dynamics(args, job_args, dynamics_args):
 
     if args.use_wandb:
         wandb.finish()
+
+
+def main():
+    (args, job_args, path_args, wandb_args, dynamics_args,
+     queries_args, uncertainty_args) = get_args()
+
+    if args.job == 'train-dynamics':
+        _train_dynamics(args, job_args, dynamics_args)
+    elif args.job == 'evaluate-queries':
+        _evaluate_queries(args, job_args, dynamics_args, queries_args)
+    elif args.job == 'uncertainty-test':
+        query_eval_df = None
+        if args.use_wandb:
+            wandb.init(job_type=args.job,
+                       dir=args.wandb_dir,
+                       project=args.wandb_project_name + '-' + args.job,
+                       settings=wandb.Settings(start_method="thread"))
+
+        # restore query evaluation data
+        if args.restore_query_eval_data_from_wandb:
+            assert args.wandb_query_eval_data_run_id is not None, \
+                'wandb-query-eval-data-run-id cannot be None'
+            run = wandb.Api().run(args.wandb_query_eval_data_run_id)
+            remote_config = run.config
+            assert args.env_name == remote_config['env_name']
+
+            # preserve original dynamics args
+            for _arg in dynamics_args._group_actions:
+                setattr(args, _arg.dest, remote_config[_arg.dest])
+                setattr(dynamics_args, _arg.dest, remote_config[_arg.dest])
+
+            # preserve original query eval args
+            for _arg in queries_args._group_actions:
+                setattr(args, _arg.dest, remote_config[_arg.dest])
+                setattr(queries_args, _arg.dest, remote_config[_arg.dest])
+
+            # download query-evaluation data
+            table_file_path = run.summary.get('query-eval-data').get("path")
+            table_file = wandb.restore(table_file_path,
+                                       args.wandb_query_eval_data_run_id)
+            table_str = table_file.read()
+            table_dict = json.loads(table_str)
+            query_eval_df = pd.DataFrame(**table_dict)
+
+        config = BaseConfig(args, dynamics_args)
+        if query_eval_df is None:
+            query_eval_path = config.evaluate_queries_path(args, queries_args)
+            query_eval_df = pd.read_pickle(query_eval_path)
+
+        # ################
+        # uncertainty-test
+        # ################
+
+        if config.args.uncertainty_test_type == 'ensemble-voting':
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ev(
+                query_eval_df,
+                ensemble_size_interval=10,
+                num_ensemble=config.args.num_ensemble,
+                confidence_interval=0.01)
+        elif config.args.uncertainty_test_type == 'paired-confidence-interval':
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
+                query_eval_df,
+                ensemble_size_interval=10,
+                num_ensemble=config.args.num_ensemble,
+                step=0.1,
+                paired=True)
+        elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
+            ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
+                query_eval_df,
+                ensemble_size_interval=10,
+                num_ensemble=config.args.num_ensemble,
+                step=0.1,
+                paired=False)
+        else:
+            raise NotImplementedError(
+                '{} is not implemented'.format(config.args.uncetainty_test))
+
+        # setup for saving data on wandb
+        if args.use_wandb:
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in job_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in dynamics_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in queries_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in uncertainty_args._group_actions})
+
+            ensemble_df_table = wandb.Table(dataframe=ensemble_df)
+            horizon_df_table = wandb.Table(dataframe=horizon_df)
+            wandb.log({'ensemble-data': ensemble_df_table,
+                       'horizon-data': horizon_df_table,
+                       'ensemble-rpp-data': embl_rpp_df,
+                       'horizon-rpp-data': hzn_rpp_df})
+            if args.uncertainty_test_type == 'ensemble-voting':
+                threshold_name = 'confidence_threshold'
+            else:
+                threshold_name = 'confidence_level'
+            for category, _category_df in [('ensemble_count', ensemble_df),
+                                           ('horizon', horizon_df)]:
+                categories = _category_df[category].unique()
+                conf_threshold = _category_df[threshold_name].unique()
+                categories.sort()
+                conf_threshold.sort()
+                ys = {'accuracy': [], 'abstain': [], 'abstain_count': []}
+                for cat in categories:
+                    _filter = _category_df[category] == cat
+                    _sub_df = _category_df[_filter].sort_values(
+                        by=[threshold_name])
+                    ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
+                    ys['abstain'].append(_sub_df['abstain'].values.tolist())
+                    ys['abstain_count'].append(
+                        _sub_df['abstain_count'].values.tolist())
+
+                for key, val in ys.items():
+                    _plot = wandb.plot.line_series(
+                        xs=conf_threshold,
+                        ys=val,
+                        keys=["{}:{}".format(category, e) for e in categories],
+                        title='{}-{}'.format(category, key),
+                        xname="confidence-threshold")
+                    wandb.log({'{}-{}'.format(category, key): _plot})
+
+    else:
+        raise NotImplementedError('{} job is not implemented'.format(args.job))
 
 
 if __name__ == '__main__':
