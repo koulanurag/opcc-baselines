@@ -356,46 +356,50 @@ def _evaluate_queries(args, job_args, dynamics_args, queries_args):
 
 
 def _train_dynamics(args, job_args, dynamics_args):
-    config = BaseConfig(args, dynamics_args)
-
-    # enable wandb for experiment tracking
-    if args.use_wandb:
-        run = wandb.init(job_type=args.job,
-                         dir=args.wandb_dir,
-                         project=args.wandb_project_name + '-' + args.job,
-                         settings=wandb.Settings(start_method="thread"),
-                         id=(args.wandb_run_id.split('/')[-1]
-                             if args.resume is not None else None),
-                         resume=(True if args.resume is not None else False))
-
-        # config restoration
-        if args.resume is not None and args.resume == 'wandb':
+    # training resumption
+    if args.resume is not None:
+        if args.resume == 'wandb':
+            # config restoration
+            run = wandb.Api().run(args.wandb_run_path)
             for _arg in job_args._group_actions:
                 setattr(args, _arg.dest, run.config[_arg.dest])
                 setattr(job_args, _arg.dest, run.config[_arg.dest])
             for _arg in dynamics_args._group_actions:
                 setattr(args, _arg.dest, run.config[_arg.dest])
                 setattr(dynamics_args, _arg.dest, run.config[_arg.dest])
-        else:
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in job_args._group_actions})
-            wandb.config.update({x.dest: vars(args)[x.dest]
-                                 for x in dynamics_args._group_actions})
+            config = BaseConfig(args, dynamics_args)
 
-    # checkpoint restoration
-    if args.resume is not None:
-        if args.resume == 'wandb':
             # download checkpoint
             root = os.path.dirname(config.checkpoint_path)
             name = os.path.basename(config.checkpoint_path)
             os.makedirs(root, exist_ok=True)
-            wandb.restore(name=name, run_path=args.wandb_run_id,
-                          replace=True, root=root)
+            wandb.restore(name=name,
+                          run_path=args.wandb_run_path,
+                          replace=True,
+                          root=root)
         elif args.resume == 'local':
+            config = BaseConfig(args, dynamics_args)
             assert os.path.exists(config.checkpoint_path), \
                 'no checkpoint found  @ {}'.format(config.checkpoint_path)
         else:
             raise ValueError('invalid value for --resume')
+    else:
+        config = BaseConfig(args, dynamics_args)
+
+    # enable wandb for experiment tracking
+    if args.use_wandb:
+        wandb.init(job_type=args.job,
+                   dir=args.wandb_dir,
+                   project=args.wandb_project_name + '-' + args.job,
+                   settings=wandb.Settings(start_method="thread"),
+                   id=(args.wandb_run_path.split('/')[-1]
+                       if args.resume is not None else None),
+                   resume=(True if args.resume is not None else False))
+        if args.resume is None or args.resume == 'local':
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in job_args._group_actions})
+            wandb.config.update({x.dest: vars(args)[x.dest]
+                                 for x in dynamics_args._group_actions})
 
     train_dynamics(config)
 
