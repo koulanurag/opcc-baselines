@@ -1,6 +1,8 @@
 import argparse
 import json
+import logging
 import os
+import pickle
 import random
 from pathlib import Path
 
@@ -9,6 +11,7 @@ import opcc
 import pandas as pd
 import torch
 import wandb
+from sklearn import metrics
 from wandb.plot import scatter
 
 from core.config import BaseConfig
@@ -16,6 +19,7 @@ from core.train import train_dynamics
 from core.uncertainty import confidence_interval as ci
 from core.uncertainty import ensemble_voting as ev
 from core.utils import evaluate_queries
+from core.utils import init_logger
 
 
 def _seed(seed=0, cuda=False):
@@ -284,22 +288,42 @@ def _train_dynamics(args, job_args, dynamics_args):
         wandb.finish()
 
 
+def _evaluation_metrics(predictions, targets, confidences, k=10):
+    loss = np.logical_xor(predictions, targets)  # we use 0-1 loss
+    sr_coverage = []  # selective risk coverages
+    for tau in np.arange(0, 1.01, 0.01):
+        non_abstain_filter = confidences >= tau
+        selective_risk = np.sum(loss[non_abstain_filter])
+        selective_risk /= np.sum(non_abstain_filter)
+        coverage = np.mean(non_abstain_filter)
+        sr_coverage.append((selective_risk, coverage))
+
+    # AURCC ( Area Under Risk-Coverage Curve)
+    selective_risks, coverages = list(zip(*sorted(sr_coverage)))
+    aurcc = metrics.auc(selective_risks, coverages)
+
+    # Reverse-pair-proportion
+    rpp = np.logical_and(np.expand_dims(loss, 1)
+                         < np.expand_dims(loss, 1).transpose(),
+                         np.expand_dims(confidences, 1)
+                         < np.expand_dims(confidences, 1).transpose()
+                         ).mean()
+
+    # Coverage Resolution (cr_k) : Ideally, we would like it to be 1
+    bins = [_ for _ in np.arange(0, 1 + 1e-5, 1 / k)]
+    cr_k = np.unique(np.digitize(coverages, bins)).size / len(bins)
+
+    return aurcc, rpp, cr_k
+
+
 def _uncertainty_test(args, job_args, dynamics_args, queries_args,
                       uncertainty_args):
-    # enable wandb for experiment tracking
-    if args.use_wandb:
-        wandb.init(job_type=args.job,
-                   dir=args.wandb_dir,
-                   project=args.wandb_project_name + '-' + args.job,
-                   settings=wandb.Settings(start_method="thread"))
-
     # restore query evaluation data
     if args.restore_query_eval_data_from_wandb:
         assert args.wandb_query_eval_data_run_path is not None, \
             'wandb-query-eval-data-run-path cannot be None'
         run = wandb.Api().run(args.wandb_query_eval_data_run_path)
         remote_config = run.config
-        assert args.env_name == remote_config['env_name']
 
         # preserve original dynamics args
         for _arg in dynamics_args._group_actions:
@@ -317,45 +341,20 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
                                    args.wandb_query_eval_data_run_path)
         table_str = table_file.read()
         table_dict = json.loads(table_str)
+
+        config = BaseConfig(args, dynamics_args)
         query_eval_df = pd.DataFrame(**table_dict)
     else:
-        query_eval_df = None
-
-    config = BaseConfig(args, dynamics_args)
-    if query_eval_df is None:
+        config = BaseConfig(args, dynamics_args)
         query_eval_path = config.evaluate_queries_path(args, queries_args)
         query_eval_df = pd.read_pickle(query_eval_path)
 
-    # ################
-    # uncertainty-test
-    # ################
-
-    if config.args.uncertainty_test_type == 'ensemble-voting':
-        ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ev(
-            query_eval_df,
-            ensemble_size_interval=10,
-            num_ensemble=config.args.num_ensemble,
-            confidence_interval=0.01)
-    elif config.args.uncertainty_test_type == 'paired-confidence-interval':
-        ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
-            query_eval_df,
-            ensemble_size_interval=10,
-            num_ensemble=config.args.num_ensemble,
-            step=0.1,
-            paired=True)
-    elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
-        ensemble_df, horizon_df, embl_rpp_df, hzn_rpp_df = ci(
-            query_eval_df,
-            ensemble_size_interval=10,
-            num_ensemble=config.args.num_ensemble,
-            step=0.1,
-            paired=False)
-    else:
-        raise NotImplementedError(
-            '{} is not implemented'.format(config.args.uncetainty_test))
-
-    # setup for saving data on wandb
+    # enable wandb for experiment tracking
     if args.use_wandb:
+        wandb.init(job_type=args.job,
+                   dir=args.wandb_dir,
+                   project=args.wandb_project_name + '-' + args.job,
+                   settings=wandb.Settings(start_method="thread"))
         wandb.config.update({x.dest: vars(args)[x.dest]
                              for x in job_args._group_actions})
         wandb.config.update({x.dest: vars(args)[x.dest]
@@ -365,41 +364,62 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
         wandb.config.update({x.dest: vars(args)[x.dest]
                              for x in uncertainty_args._group_actions})
 
-        ensemble_df_table = wandb.Table(dataframe=ensemble_df)
-        horizon_df_table = wandb.Table(dataframe=horizon_df)
-        wandb.log({'ensemble-data': ensemble_df_table,
-                   'horizon-data': horizon_df_table,
-                   'ensemble-rpp-data': embl_rpp_df,
-                   'horizon-rpp-data': hzn_rpp_df})
-        if args.uncertainty_test_type == 'ensemble-voting':
-            threshold_name = 'confidence_threshold'
-        else:
-            threshold_name = 'confidence_level'
-        for category, _category_df in [('ensemble_count', ensemble_df),
-                                       ('horizon', horizon_df)]:
-            categories = _category_df[category].unique()
-            conf_threshold = _category_df[threshold_name].unique()
-            categories.sort()
-            conf_threshold.sort()
-            ys = {'accuracy': [], 'abstain': [], 'abstain_count': []}
-            for cat in categories:
-                _filter = _category_df[category] == cat
-                _sub_df = _category_df[_filter].sort_values(
-                    by=[threshold_name])
-                ys['accuracy'].append(_sub_df['accuracy'].values.tolist())
-                ys['abstain'].append(_sub_df['abstain'].values.tolist())
-                ys['abstain_count'].append(
-                    _sub_df['abstain_count'].values.tolist())
+    # ################
+    # uncertainty-test
+    # ################
+    if config.args.uncertainty_test_type == 'ensemble-voting':
+        uncertainty_dict = ev(query_eval_df,
+                              ensemble_size_interval=10,
+                              num_ensemble=config.args.num_ensemble)
+    elif config.args.uncertainty_test_type == 'paired-confidence-interval':
+        uncertainty_dict = ci(query_eval_df,
+                              ensemble_size_interval=10,
+                              num_ensemble=config.args.num_ensemble,
+                              paired=True)
+    elif config.args.uncertainty_test_type == 'unpaired-confidence-interval':
+        uncertainty_dict = ci(query_eval_df,
+                              ensemble_size_interval=10,
+                              num_ensemble=config.args.num_ensemble,
+                              paired=False)
+    else:
+        raise NotImplementedError(
+            '{} is not implemented'.format(config.args.uncetainty_test))
 
-            for key, val in ys.items():
-                _plot = wandb.plot.line_series(
-                    xs=conf_threshold,
-                    ys=val,
-                    keys=["{}:{}".format(category, e) for e in categories],
-                    title='{}-{}'.format(category, key),
-                    xname="confidence-threshold")
-                wandb.log({'{}-{}'.format(category, key): _plot})
+    # setup logging
+    exp_dir = config.uncertainty_exp_dir(args, queries_args, uncertainty_args)
+    logs_dir = os.path.join(exp_dir, 'uncertainty_logs')
+    os.makedirs(logs_dir, exist_ok=True)
+    init_logger(logs_dir, 'uncertainty_test')
 
+    # ###################
+    # Evaluation Metrics
+    # ###################
+    k = 10
+    for ensemble_count in sorted(uncertainty_dict.keys()):
+        for horizon in sorted(uncertainty_dict[ensemble_count].keys()):
+            v = uncertainty_dict[ensemble_count][horizon]
+            aurcc, rpp, cr_k = _evaluation_metrics(v['prediction'],
+                                                   v['target'],
+                                                   v['confidence'], k)
+            # log
+            _log = {'aurcc': aurcc,
+                    'rpp': rpp,
+                    'cr_{}'.format(k): cr_k,
+                    'horizon': horizon,
+                    'ensemble_count': ensemble_count}
+            logging.getLogger('uncertainty_test').info(_log)
+            if args.use_wandb:
+                wandb.log(_log)
+
+
+
+    # save data
+    uncertainty_dict_path = os.path.join(exp_dir, 'uncertainty_dict.pkl')
+    pickle.dump(uncertainty_dict, open(uncertainty_dict_path, 'wb'))
+
+    # save on wandb
+    if args.use_wandb:
+        wandb.save(glob_str=uncertainty_dict_path, policy='now')
         wandb.finish()
 
 

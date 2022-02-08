@@ -74,6 +74,29 @@ class BaseConfig(object):
         os.makedirs(_dir, exist_ok=True)
         return os.path.join(_dir, 'evaluate_queries.pkl')
 
+    def uncertainty_exp_dir(self, args, queries_args,
+                            uncertainty_args) -> os.path:
+        # hyper-parameters hash for experiment saving
+        sorted_args = sorted(queries_args._group_actions,
+                             key=lambda x: x.dest)
+        query_args_str = [str(vars(args)[hp.dest]) for hp in sorted_args]
+        query_args_byte = bytes(''.join(query_args_str), 'ascii')
+        query_args_hash = hashlib.sha224(query_args_byte).hexdigest()
+
+        # hyper-parameters hash for experiment saving
+        sorted_args = sorted(uncertainty_args._group_actions,
+                             key=lambda x: x.dest)
+        uncertainty_args_str = [str(vars(args)[hp.dest]) for hp in sorted_args]
+        uncertainty_args_byte = bytes(''.join(uncertainty_args_str), 'ascii')
+        uncertainty_args_hash = hashlib.sha224(uncertainty_args_byte)
+        uncertainty_args_hash = uncertainty_args_hash.hexdigest()
+
+        _dir = os.path.join(self.exp_dir_path, query_args_hash,
+                            uncertainty_args_hash)
+        os.makedirs(_dir, exist_ok=True)
+
+        return _dir
+
     @property
     def checkpoint_path(self) -> os.path:
         return os.path.join(self.exp_dir_path, 'dynamics_checkpoint.p')
