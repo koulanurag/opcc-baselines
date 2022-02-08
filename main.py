@@ -4,6 +4,7 @@ import logging
 import os
 import pickle
 import random
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -395,9 +396,21 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
     # Evaluation Metrics
     # ###################
     k = 10
+    eval_metric_df = []
     for ensemble_count in sorted(uncertainty_dict.keys()):
-        for horizon in sorted(uncertainty_dict[ensemble_count].keys()):
-            v = uncertainty_dict[ensemble_count][horizon]
+        horizons = sorted(uncertainty_dict[ensemble_count].keys())
+        for horizon in (horizons + [None]):
+
+            if horizon is None:  # get data for all horizons
+                v = defaultdict(lambda: [])
+                for _h in horizons:
+                    for __k in uncertainty_dict[ensemble_count][_h]:
+                        v[__k] += list(uncertainty_dict[ensemble_count]
+                                       [_h][__k])
+
+            else:  # get data for specific horizon
+                v = uncertainty_dict[ensemble_count][horizon]
+
             aurcc, rpp, cr_k = _evaluation_metrics(v['prediction'],
                                                    v['target'],
                                                    v['confidence'], k)
@@ -408,18 +421,21 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
                     'horizon': horizon,
                     'ensemble_count': ensemble_count}
             logging.getLogger('uncertainty_test').info(_log)
-            if args.use_wandb:
-                wandb.log(_log)
+            eval_metric_df.append(pd.DataFrame({_k: [_v]
+                                                for _k, _v in _log.items()}))
 
-
+    eval_metric_df = pd.concat(eval_metric_df, ignore_index=True)
 
     # save data
     uncertainty_dict_path = os.path.join(exp_dir, 'uncertainty_dict.pkl')
+    eval_metric_df_path = os.path.join(exp_dir, 'eval_metric_df.pkl')
     pickle.dump(uncertainty_dict, open(uncertainty_dict_path, 'wb'))
+    eval_metric_df.to_pickle(eval_metric_df_path)
 
     # save on wandb
     if args.use_wandb:
         wandb.save(glob_str=uncertainty_dict_path, policy='now')
+        wandb.save(glob_str=eval_metric_df_path, policy='now')
         wandb.finish()
 
 
