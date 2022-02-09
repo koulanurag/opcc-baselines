@@ -34,6 +34,8 @@ pip install -r requirements.txt
 
 #### Train dynamics:
 
+Example: `python main.py --job train-dynamics --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10`
+
 | Optional Arguments                              | Description                                                                    |
 |:------------------------------------------------|:-------------------------------------------------------------------------------|
 | `--env-name`                                    | name of the environment (default: HalfCheetah-v2)                              |
@@ -55,6 +57,8 @@ pip install -r requirements.txt
 
 #### Query Evaluation:
 
+Example: `python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10`
+
 | Optional Arguments              | Description                                                                                             |
 |:--------------------------------|:--------------------------------------------------------------------------------------------------------|
 | `--restore-dynamics-from-wandb` | restore model from wandb run (default: False)                                                           |
@@ -66,6 +70,8 @@ pip install -r requirements.txt
 | `--clip-reward`                 | clip the reward with dataset bounds for <br/>query evaluation (default: False)                          |
 
 #### Uncertainty-test :
+
+Example: `python main.py --job uncertainty-test --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10`
 
 | Optional Arguments                                                                                                      | Description                                           |
 |:------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
