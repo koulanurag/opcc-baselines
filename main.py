@@ -442,16 +442,22 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
 def main():
     (args, job_args, path_args, wandb_args, dynamics_args,
      queries_args, uncertainty_args) = get_args()
-
-    if args.job == 'train-dynamics':
-        _train_dynamics(args, job_args, dynamics_args)
-    elif args.job == 'evaluate-queries':
-        _evaluate_queries(args, job_args, dynamics_args, queries_args)
-    elif args.job == 'uncertainty-test':
-        _uncertainty_test(args, job_args, dynamics_args, queries_args,
-                          uncertainty_args)
-    else:
-        raise NotImplementedError('{} job is not implemented'.format(args.job))
+    try:
+        if args.job == 'train-dynamics':
+            _train_dynamics(args, job_args, dynamics_args)
+        elif args.job == 'evaluate-queries':
+            _evaluate_queries(args, job_args, dynamics_args, queries_args)
+        elif args.job == 'uncertainty-test':
+            _uncertainty_test(args, job_args, dynamics_args, queries_args,
+                              uncertainty_args)
+        else:
+            raise NotImplementedError('{} job is not implemented'.format(
+                args.job))
+    except Exception as ex:
+        from core.utils import log_traceback
+        print("\n".join(log_traceback(ex)))
+        if args.use_wandb:
+            wandb.finish(exit_code=1)
 
 
 if __name__ == '__main__':

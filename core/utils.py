@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from typing import List
 
 import numpy as np
@@ -7,6 +8,14 @@ import opcc
 import pandas as pd
 import torch
 from rliable import metrics
+
+
+def log_traceback(ex, ex_traceback=None):
+    if ex_traceback is None:
+        ex_traceback = ex.__traceback__
+    tb_lines = [line.rstrip('\n') for line in
+                traceback.format_exception(ex.__class__, ex, ex_traceback)]
+    return tb_lines
 
 
 def init_logger(base_path: str, name: str, file_mode='w'):
@@ -27,7 +36,8 @@ def init_logger(base_path: str, name: str, file_mode='w'):
 def evaluate_queries(queries, network, runs, batch_size, device: str = 'cpu',
                      mixture: bool = False) -> pd.DataFrame:
     predict_df = pd.DataFrame()
-    for (policy_a_id, policy_b_id), query_batch in queries.items():
+    for (policy_a_id, policy_b_id), query_batch in tqdm(queries.items(),
+                                                        desc='Policy Pairs'):
 
         # get policies
         policy_a, _ = opcc.get_policy(*policy_a_id)
