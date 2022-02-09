@@ -37,7 +37,10 @@ jobs:
           rm -rf *.zip*
           cp -r $HOME/.mujoco/mujoco200_linux/* $HOME/.mujoco/mujoco200
           wget https://www.roboti.us/file/mjkey.txt
+      - uses: actions/labeler@v2
       - name: Install dependencies
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
         run: |
           export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200/bin
@@ -45,7 +48,7 @@ jobs:
           python3 -m pip install flake8
           pip3 install pytest pytest_cases
           pip3 install torch==1.10.2+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
-          pip3 install git+https://github.com/koulanurag/opcc@main#egg=opcc
+          pip3 install git+https:koulanurag:${{secrets.GITHUB_TOKEN}}/github.com/koulanurag/opcc@main#egg=opcc
           pip3 install -r requirements.txt
       - name: Lint with flake8
         run: |
