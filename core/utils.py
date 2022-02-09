@@ -10,6 +10,7 @@ import torch
 from rliable import metrics
 from tqdm import tqdm
 
+
 def log_traceback(ex, ex_traceback=None):
     if ex_traceback is None:
         ex_traceback = ex.__traceback__
@@ -34,7 +35,8 @@ def init_logger(base_path: str, name: str, file_mode='w'):
 
 
 def evaluate_queries(queries, network, runs, batch_size, device: str = 'cpu',
-                     mixture: bool = False) -> pd.DataFrame:
+                     mixture: bool = False,
+                     verbose: bool = False) -> pd.DataFrame:
     predict_df = pd.DataFrame()
     for (policy_a_id, policy_b_id), query_batch in tqdm(queries.items(),
                                                         desc='Policy Pairs'):
@@ -55,7 +57,8 @@ def evaluate_queries(queries, network, runs, batch_size, device: str = 'cpu',
         # evaluate
         pred_a = np.zeros((len(obs_a), network.num_ensemble))
         pred_b = np.zeros((len(obs_b), network.num_ensemble))
-        for horizon in tqdm(np.unique(horizons), desc='Horizons'):
+        for horizon in tqdm(np.unique(horizons), desc='Horizons',
+                            disable=verbose):
             _filter = horizons == horizon
             pred_a[_filter, :] = mc_return(network=network,
                                            init_obs=obs_a[_filter],
@@ -122,8 +125,8 @@ def evaluate_queries(queries, network, runs, batch_size, device: str = 'cpu',
 @torch.no_grad()
 def mc_return(network, init_obs, init_action, policy, horizon: int,
               device: str = 'cpu', runs: int = 1, mixture: bool = False,
-              eval_batch_size: int = 128,
-              mixture_seed: int = 0) -> List[float]:
+              eval_batch_size: int = 128, mixture_seed: int = 0,
+              verbose: bool = False) -> List[float]:
     assert len(init_obs) == len(init_action), 'batch size not same'
     batch_size, obs_size = init_obs.shape
     _, action_size = init_action.shape
@@ -140,7 +143,7 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
 
     returns = np.zeros((batch_size * runs, network.num_ensemble))
     for batch_idx in tqdm(range(0, returns.shape[0], eval_batch_size),
-                          desc='Batch'):
+                          desc='Batch', disable=verbose):
         batch_end_idx = batch_idx + eval_batch_size
 
         # reset

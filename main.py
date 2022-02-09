@@ -156,7 +156,8 @@ def get_args(arg_str: str = None):
            dynamics_args, queries_args, uncertain_args
 
 
-def _evaluate_queries(args, job_args, dynamics_args, queries_args):
+def _evaluate_queries(args, job_args, dynamics_args, queries_args,
+                      verbose=False):
     # set-up config
     if args.restore_dynamics_from_wandb:
 
@@ -219,7 +220,8 @@ def _evaluate_queries(args, job_args, dynamics_args, queries_args):
                                     runs=args.eval_runs,
                                     batch_size=args.eval_batch_size,
                                     device=args.device,
-                                    mixture=args.mixture)
+                                    mixture=args.mixture,
+                                    verbose=verbose)
     query_eval_path = config.evaluate_queries_path(args, queries_args)
     predicted_df.to_pickle(query_eval_path)
 
@@ -446,7 +448,8 @@ def main():
         if args.job == 'train-dynamics':
             _train_dynamics(args, job_args, dynamics_args)
         elif args.job == 'evaluate-queries':
-            _evaluate_queries(args, job_args, dynamics_args, queries_args)
+            _evaluate_queries(args, job_args, dynamics_args, queries_args,
+                              verbose=True)
         elif args.job == 'uncertainty-test':
             _uncertainty_test(args, job_args, dynamics_args, queries_args,
                               uncertainty_args)
