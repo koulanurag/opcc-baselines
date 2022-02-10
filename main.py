@@ -436,8 +436,9 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
 
     # save on wandb
     if args.use_wandb:
+        table = wandb.Table(dataframe=eval_metric_df)
+        wandb.log({'eval-metrics': table})
         wandb.save(glob_str=uncertainty_dict_path, policy='now')
-        wandb.save(glob_str=eval_metric_df_path, policy='now')
         wandb.finish()
 
 
