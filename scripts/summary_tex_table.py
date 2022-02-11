@@ -52,6 +52,17 @@ def prettify_env_name(env_name):
         return "\\\\".join(camel_case_split(x)[1:])
 
 
+def prettify_category_name(name):
+    if name == 'ensemble-voting':
+        return 'ev'
+    elif name == 'unpaired-confidence-interval':
+        return 'u-pci'
+    elif name == 'paired-confidence-interval':
+        return 'pci'
+    else:
+        return name
+
+
 def latex_table(info_dict, category_name, table_name, path):
     tex = "\\begin{table}[t!]" + "\n" + \
           "\caption{Evaluation metrics for  \emph{" + table_name + "}" + \
@@ -71,7 +82,7 @@ def latex_table(info_dict, category_name, table_name, path):
                + "}{3.6em}{" + str(prettify_env_name(env_name)) + "}  "
         for cat in info_dict[env_name]:
             tex += "& " \
-                   + str(cat) \
+                   + str(prettify_category_name(cat)) \
                    + " & " + score(info_dict[env_name][cat]['aurcc']) \
                    + " & " + score(info_dict[env_name][cat]['rpp']) \
                    + " & " + score(info_dict[env_name][cat]['cr_10']) \
