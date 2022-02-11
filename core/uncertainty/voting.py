@@ -10,7 +10,7 @@ def _voting(pred_a, pred_b):
     pred_label = np.zeros(len(true_conf))
     pred_label[true_conf >= 0.5] = 1
     pred_label = pred_label.astype(bool)
-    pred_conf = np.zeros(len(true_conf))
+    pred_conf = np.zeros(len(true_conf), dtype=float)
 
     # we treat confidence at 0.5 as 0
     pred_conf[true_conf >= 0.5] = (true_conf[true_conf >= 0.5] - 0.5) / 0.5

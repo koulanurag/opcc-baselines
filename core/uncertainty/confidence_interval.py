@@ -5,8 +5,8 @@ import scipy
 
 def paired_confidence_interval(pred_a, pred_b):
     delta_pred = pred_a - pred_b
-    pred_label = np.array([None for _ in range(len(pred_a))])
-    pred_conf_level = np.array([None for _ in range(len(pred_a))])
+    pred_label = np.array([0 for _ in range(len(pred_a))])  # default false
+    pred_conf = np.zeros(len(pred_a), dtype=float)  # default 0 confidence
     for conf_level in np.arange(0, 1.01, 0.01):
         df = np.ones(len(delta_pred)) * (len(delta_pred[0]) - 1)
         loc = np.mean(delta_pred, axis=1)
@@ -16,15 +16,15 @@ def paired_confidence_interval(pred_a, pred_b):
         accept_filter = ~np.logical_and((res_low < 0), (res_high > 0))
         pred_label[np.logical_and(res_high < 0, accept_filter)] = 1  # true
         pred_label[np.logical_and((res_low > 0), accept_filter)] = 0  # false
-        pred_conf_level[accept_filter] = conf_level
+        pred_conf[accept_filter] = conf_level
 
     pred_label = pred_label.astype(bool)
-    return pred_label, pred_conf_level
+    return pred_label, pred_conf
 
 
 def unpaired_confidence_interval(pred_a, pred_b):
-    pred_label = np.array([None for _ in range(len(pred_a))])
-    pred_conf = np.array([None for _ in range(len(pred_a))])
+    pred_label = np.array([0 for _ in range(len(pred_a))])  # default false
+    pred_conf = np.zeros(len(pred_a), dtype=float)  # default 0 confidence
     for conf_level in np.arange(0, 1.01, 0.01):
         df = np.ones(len(pred_a)) * (len(pred_a[0]) - 1)
         loc = np.mean(pred_a, axis=1)
