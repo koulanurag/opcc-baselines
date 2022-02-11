@@ -68,7 +68,7 @@ def confidence_interval(eval_df: pd.DataFrame,
     pred_b = np.concatenate(pred_b, axis=1)
     target = eval_df['target'].values
     target_return_a = eval_df['return_a'].values
-    target_return_b = eval_df['return_a'].values
+    target_return_b = eval_df['return_b'].values
     horizons = eval_df['horizon'].values
     horizon_candidates = np.unique(horizons, axis=0)
 
