@@ -99,3 +99,7 @@ python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wan
 ## Reproducibility
 
 Please refer to Wiki for complete list of commands for each environment
+
+## Contact
+
+If you have any questions , please contact koulanurag@gmail.com 
