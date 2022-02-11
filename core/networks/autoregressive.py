@@ -46,6 +46,7 @@ class AgDynamicsNetwork(Base):
         self.prior_fc2 = nn.Linear(hidden_size, hidden_size)
         self.prior_fc3 = nn.Linear(hidden_size, hidden_size)
         self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
+
         for name, param in self.named_parameters():
             if 'prior' in name:
                 param.requires_grad = False
@@ -133,8 +134,8 @@ class AgDynamicsNetwork(Base):
 
         # estimate prior
         prior_mu, prior_log_var_logit = self._prior_logits(obs, action)
-        prior_mu.detach_()
-        prior_log_var_logit.detach_()
+        prior_mu = prior_mu.detach()
+        prior_log_var_logit = prior_log_var_logit.detach()
 
         # predictions
         reward, mu, log_var = None, None, None
@@ -290,3 +291,21 @@ class AgDynamicsNetwork(Base):
 
     def clip_reward(self, reward):
         return torch.clip(reward, min=self.reward_min, max=self.reward_max)
+
+    def normalize_obs(self, obs):
+        return self.normalize(obs, self._obs_mean, self._obs_std)
+
+    def denormalize_obs(self, obs):
+        return self.denormalize(obs, self._obs_mean, self._obs_std)
+
+    def normalize_action(self, action):
+        return self.normalize(action, self._action_mean, self._action_std)
+
+    @staticmethod
+    def normalize(x, mean, std):
+        x_norm = (x - mean) / std
+        return x_norm
+
+    @staticmethod
+    def denormalize(x_norm, mean, std):
+        return (x_norm * std) + mean
