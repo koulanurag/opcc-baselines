@@ -304,7 +304,10 @@ def _evaluation_metrics(predictions, targets, confidences, k=10):
 
     # AURCC ( Area Under Risk-Coverage Curve)
     selective_risks, coverages = list(zip(*sorted(sr_coverage)))
-    aurcc = metrics.auc(selective_risks, coverages)
+    if len(sr_coverage) > 1:
+        aurcc = metrics.auc(selective_risks, coverages)
+    else:
+        aurcc = 0
 
     # Reverse-pair-proportion
     rpp = np.logical_and(np.expand_dims(loss, 1)
