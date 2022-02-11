@@ -57,7 +57,15 @@ Example: `python main.py --job train-dynamics --env-name d4rl:maze2d-open-v0 --d
 
 #### Query Evaluation:
 
-Example: `python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10`
+Example:
+- Restoring dynamics locally:
+```bash
+python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
+```
+- Restoring dynamics from wandb:
+```bash
+python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dynamics-run-path koulanurag/opcc-baselines-train-dynamics/ahkjhdk
+```
 
 | Optional Arguments              | Description                                                                                             |
 |:--------------------------------|:--------------------------------------------------------------------------------------------------------|
@@ -71,7 +79,16 @@ Example: `python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 -
 
 #### Uncertainty-test :
 
-Example: `python main.py --job uncertainty-test --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10`
+
+Example:
+- Restoring query evaluation data locally:
+```bash
+python main.py --job uncertainty-test --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
+```
+- Restoring query evaluation data from wandb:
+```bash
+python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wandb-query-eval-data-run-path koulanurag/opcc-baselines-evaluate-queries/ahkjhdk
+```
 
 | Optional Arguments                                                                                                      | Description                                           |
 |:------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
