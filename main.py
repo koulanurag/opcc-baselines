@@ -296,10 +296,11 @@ def _evaluation_metrics(predictions, targets, confidences, k=10):
     sr_coverage = []  # selective risk coverages
     for tau in np.arange(0, 1.01, 0.01):
         non_abstain_filter = confidences >= tau
-        selective_risk = np.sum(loss[non_abstain_filter])
-        selective_risk /= np.sum(non_abstain_filter)
-        coverage = np.mean(non_abstain_filter)
-        sr_coverage.append((selective_risk, coverage))
+        if any(non_abstain_filter):
+            selective_risk = np.sum(loss[non_abstain_filter])
+            selective_risk /= np.sum(non_abstain_filter)
+            coverage = np.mean(non_abstain_filter)
+            sr_coverage.append((selective_risk, coverage))
 
     # AURCC ( Area Under Risk-Coverage Curve)
     selective_risks, coverages = list(zip(*sorted(sr_coverage)))
