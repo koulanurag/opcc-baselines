@@ -35,11 +35,15 @@ def metrics(data, key):
                 info[env_name] = {}
 
             info[env_name][_num] = {'aurcc': {'mean': aurcc.mean(),
-                                              'std': aurcc.std()},
+                                              'std': aurcc.std(),
+                                              'n': len(aurcc)},
                                     'rpp': {'mean': rpp.mean(),
-                                            'std': rpp.std()},
+                                            'std': rpp.std(),
+                                            'n': len(aurcc)},
                                     'cr_10': {'mean': cr_10.mean(),
-                                              'std': cr_10.std()}}
+                                              'std': cr_10.std(),
+                                              'n': len(cr_10)}
+                                    }
     return info
 
 
@@ -71,11 +75,11 @@ def latex_table(info_dict, category_name, table_name, path):
     tex += "\\begin{center} " + "\n" + \
            "\\begin{footnotesize} " + "\n" + \
            "\\begin{sc} " + "\n" + \
-           "\\begin{tabular}{|l | c | c | c| c |}" + "\n" + \
+           "\\begin{tabular}{|l | c | c | c| c | c |}" + "\n" + \
            "\\toprule" + "\n"
     tex += "Env. & " + table_name + " & AURCC$(\\downarrow)$ &" \
                                     " RPP$(\\downarrow)$ &" \
-                                    " $CR_K(\\uparrow)$ \\\\" + '\n'
+                                    " $CR_K(\\uparrow)$ & runs \\\\" + '\n'
     tex += "\\midrule" + '\n'
     for env_i, env_name in enumerate(info_dict.keys()):
         tex += "\multirow{" + str(len(info_dict[env_name])) \
@@ -86,6 +90,7 @@ def latex_table(info_dict, category_name, table_name, path):
                    + " & " + score(info_dict[env_name][cat]['aurcc']) \
                    + " & " + score(info_dict[env_name][cat]['rpp']) \
                    + " & " + score(info_dict[env_name][cat]['cr_10']) \
+                   + " & " + str(info_dict[env_name][cat]['aurcc']['n']) \
                    + " \\\\ \n"
         if env_i == len(info_dict) - 1:
             tex += "\\bottomrule"
