@@ -9,14 +9,13 @@ on:
   pull_request:
     branches: [ main ]
 
-
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        python-version: [3.7, 3.8]
+        os: [ ubuntu-latest ]
+        python-version: [ 3.7, 3.8 ]
 
     steps:
       - uses: actions/checkout@v2
@@ -30,20 +29,19 @@ jobs:
           sudo apt-get update
           sudo apt install -y  libosmesa6-dev  libglew-dev  libgl1-mesa-glx libgl1-mesa-dev libgl1-mesa-glx libglfw3
           sudo apt install -y xpra xserver-xorg-dev patchelf
-          mkdir -p "$HOME/.mujoco/mujoco200"
+          mkdir -p "$HOME/.mujoco"
           cd $HOME/.mujoco
           wget https://www.roboti.us/download/mujoco200_linux.zip
           unzip -o mujoco200_linux.zip -d .
           rm -rf *.zip*
-          cp -r $HOME/.mujoco/mujoco200_linux/* $HOME/.mujoco/mujoco200
           wget https://www.roboti.us/file/mjkey.txt
       - uses: actions/labeler@v2
       - name: Install dependencies
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200/bin
+          export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200_linux
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200_linux/bin
           python3 -m pip install --upgrade pip setuptools wheel
           python3 -m pip install flake8
           pip3 install pytest pytest_cases
@@ -58,6 +56,6 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         run: |
-          export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200/bin
+          export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200_linux
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200_linux/bin
           pytest -v
