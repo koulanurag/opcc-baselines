@@ -36,11 +36,9 @@ jobs:
           rm -rf *.zip*
           wget https://www.roboti.us/file/mjkey.txt
 
-      - uses: actions/labeler@v2
+      - name: Install dependencies
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install dependencies
         run: |
           export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200_linux
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200_linux/bin
