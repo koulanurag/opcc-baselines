@@ -34,7 +34,10 @@ pip install -r requirements.txt
 
 #### Train dynamics:
 
-Example: `python main.py --job train-dynamics --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10`
+Example: 
+```bash
+python main.py --job train-dynamics --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
+```
 
 | Optional Arguments                              | Description                                                                    |
 |:------------------------------------------------|:-------------------------------------------------------------------------------|
@@ -102,4 +105,4 @@ Please refer to Wiki for complete list of commands for each environment
 
 ## Contact
 
-If you have any questions or suggestions , you can contact me at koulanurag@gmail.com or open an issue on this GitHub repository. 
+If you have any questions or suggestions , you can contact me at koulanurag@gmail.com or open an issue on this GitHub repository.
