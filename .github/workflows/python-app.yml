@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Mujoco
         run: |
@@ -37,8 +38,6 @@ jobs:
           wget https://www.roboti.us/file/mjkey.txt
 
       - name: Install dependencies
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
         run: |
           export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200_linux
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200_linux/bin
