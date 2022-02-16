@@ -317,7 +317,7 @@ def _evaluation_metrics(predictions, targets, confidences, k=10):
                          ).mean()
 
     # Coverage Resolution (cr_k) : Ideally, we would like it to be 1
-    bins = [_ for _ in np.arange(0, 1 + 1e-5, 1 / k)]
+    bins = [_ for _ in np.arange(0, 1, 1 / k)]
     cr_k = np.unique(np.digitize(coverages, bins)).size / len(bins)
 
     return aurcc, rpp, cr_k
