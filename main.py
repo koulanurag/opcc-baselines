@@ -188,7 +188,8 @@ def _evaluate_queries(args, job_args, dynamics_args, queries_args,
         wandb.init(job_type=args.job,
                    dir=args.wandb_dir,
                    project=args.wandb_project_name + '-' + args.job,
-                   settings=wandb.Settings(start_method="thread"))
+                   settings=wandb.Settings(start_method="thread"),
+                   save_code=True)
         wandb.config.update({x.dest: vars(args)[x.dest]
                              for x in job_args._group_actions})
         wandb.config.update({x.dest: vars(args)[x.dest]
@@ -278,7 +279,8 @@ def _train_dynamics(args, job_args, dynamics_args):
                    settings=wandb.Settings(start_method="thread"),
                    id=(args.wandb_run_path.split('/')[-1]
                        if args.resume is not None else None),
-                   resume=(True if args.resume is not None else False))
+                   resume=(True if args.resume is not None else False),
+                   save_code=True)
         if args.resume is None or args.resume == 'local':
             wandb.config.update({x.dest: vars(args)[x.dest]
                                  for x in job_args._group_actions})
@@ -361,7 +363,8 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
         wandb.init(job_type=args.job,
                    dir=args.wandb_dir,
                    project=args.wandb_project_name + '-' + args.job,
-                   settings=wandb.Settings(start_method="thread"))
+                   settings=wandb.Settings(start_method="thread"),
+                   save_code=True)
         wandb.config.update({x.dest: vars(args)[x.dest]
                              for x in job_args._group_actions})
         wandb.config.update({x.dest: vars(args)[x.dest]
