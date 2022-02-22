@@ -293,9 +293,9 @@ def _train_dynamics(args, job_args, dynamics_args):
         wandb.finish()
 
 
-def _evaluation_metrics(predictions, targets, confidences, k=10):
-    loss = np.logical_xor(predictions, targets)  # we use 0-1 loss
-    sr_coverage = []  # selective risk coverages
+def sr_coverages(loss, confidences):
+    # selective risk coverages
+    sr_coverage = []
     for tau in np.arange(0, 1.01, 0.01):
         non_abstain_filter = confidences >= tau
         if any(non_abstain_filter):
@@ -303,26 +303,35 @@ def _evaluation_metrics(predictions, targets, confidences, k=10):
             selective_risk /= np.sum(non_abstain_filter)
             coverage = np.mean(non_abstain_filter)
             sr_coverage.append((selective_risk, coverage))
-
-    # AURCC ( Area Under Risk-Coverage Curve)
     selective_risks, coverages = list(zip(*sorted(sr_coverage)))
-    if len(sr_coverage) > 1:
+    return selective_risks, coverages
+
+
+def area_under_rcc(selective_risks, coverages):
+    # AURCC ( Area Under Risk-Coverage Curve)
+    if len(selective_risks) > 1:
         aurcc = metrics.auc(selective_risks, coverages)
     else:
         aurcc = 0
+    return aurcc
 
+
+def reverse_pair_proportion(loss, confidences):
     # Reverse-pair-proportion
     rpp = np.logical_and(np.expand_dims(loss, 1)
                          < np.expand_dims(loss, 1).transpose(),
                          np.expand_dims(confidences, 1)
                          < np.expand_dims(confidences, 1).transpose()
                          ).mean()
+    return rpp
 
+
+def coverage_resolution(coverages, k):
     # Coverage Resolution (cr_k) : Ideally, we would like it to be 1
     bins = [_ for _ in np.arange(0, 1, 1 / k)]
     cr_k = np.unique(np.digitize(coverages, bins)).size / len(bins)
 
-    return aurcc, rpp, cr_k
+    return cr_k
 
 
 def _uncertainty_test(args, job_args, dynamics_args, queries_args,
@@ -406,6 +415,7 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
     # ###################
     k = 10
     eval_metric_df = []
+    sr_coverages_data = {}
     for ensemble_count in sorted(uncertainty_dict.keys()):
         horizons = sorted(uncertainty_dict[ensemble_count].keys())
         for horizon in (horizons + [None]):
@@ -420,25 +430,39 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
             else:  # get data for specific horizon
                 v = uncertainty_dict[ensemble_count][horizon]
 
-            aurcc, rpp, cr_k = _evaluation_metrics(v['prediction'],
-                                                   v['target'],
-                                                   v['confidence'], k)
-            # log
+            # we use 0-1 loss
+            loss = np.logical_xor(v['prediction'], v['target'])
+
+            # evaluation metrics
+            selective_risks, coverages = sr_coverages(loss, v['confidence'])
+            aurcc = area_under_rcc(selective_risks, coverages)
+            rpp = reverse_pair_proportion(loss, v['confidence'])
+            cr_k = coverage_resolution(coverages, k)
+
+            # log-metrics
             _log = {'aurcc': aurcc,
                     'rpp': rpp,
                     'cr_{}'.format(k): cr_k,
                     'horizon': horizon,
-                    'ensemble_count': ensemble_count}
+                    'ensemble_count': ensemble_count,
+                    'loss': np.mean(loss)}
             logging.getLogger('uncertainty_test').info(_log)
             eval_metric_df.append(pd.DataFrame({_k: [_v]
                                                 for _k, _v in _log.items()}))
+
+            # log sr-coverage data
+            sr_coverages_data[ensemble_count][horizon]['risk'] = selective_risks
+            sr_coverages_data[ensemble_count][horizon]['coverage'] = coverages
 
     eval_metric_df = pd.concat(eval_metric_df, ignore_index=True)
 
     # save data
     uncertainty_dict_path = os.path.join(exp_dir, 'uncertainty_dict.pkl')
     eval_metric_df_path = os.path.join(exp_dir, 'eval_metric_df.pkl')
+    sr_coverages_data_path = os.path.join(exp_dir, 'sr_coverage_dict.pkl')
+
     pickle.dump(uncertainty_dict, open(uncertainty_dict_path, 'wb'))
+    pickle.dump(sr_coverages_data, open(sr_coverages_data_path, 'wb'))
     eval_metric_df.to_pickle(eval_metric_df_path)
 
     # save on wandb
@@ -446,6 +470,22 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
         table = wandb.Table(dataframe=eval_metric_df)
         wandb.log({'eval-metrics': table})
         wandb.save(glob_str=uncertainty_dict_path, policy='now')
+        wandb.save(glob_str=sr_coverages_data_path, policy='now')
+
+        # plot sr-coverage curve data
+        for ensemble_count in sr_coverages_data:
+            for horizon, _data in sr_coverages_data[ensemble_count]:
+                data = [[x, y] for (x, y) in zip(_data['coverage'],
+                                                 _data['risk'])]
+                table = wandb.Table(data=data, columns=['coverage', 'risk'])
+
+                title = ("SR-Coverage Curve (Ensemble: {}, Horizon:{})".
+                         format(ensemble_count, horizon))
+                wandb.log({"selective_risk-coverage-ensemble-count-{}"
+                           "-horizon-{}".format(ensemble_count, horizon):
+                               wandb.plot.line(table, "coverage", "risk",
+                                               title=title)})
+
         wandb.finish()
 
 
