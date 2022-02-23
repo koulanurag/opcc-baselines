@@ -294,8 +294,12 @@ def _train_dynamics(args, job_args, dynamics_args):
 
 
 def sr_coverages(loss, confidences):
-    # selective risk coverages
-    sr_coverage = []
+    """
+    Selective-risk Coverage
+    """
+
+    # list of tuples (selective-risk, coverage)
+    sr_coverage = [(0, 0)]  # we begin with no risk (0) for no coverage(0)
     for tau in np.arange(0, 1.01, 0.01):
         non_abstain_filter = confidences >= tau
         if any(non_abstain_filter):
@@ -303,16 +307,19 @@ def sr_coverages(loss, confidences):
             selective_risk /= np.sum(non_abstain_filter)
             coverage = np.mean(non_abstain_filter)
             sr_coverage.append((selective_risk, coverage))
+
     selective_risks, coverages = list(zip(*sorted(sr_coverage)))
+
+    assert 0 in coverages and 1 in coverages
     return selective_risks, coverages
 
 
 def area_under_rcc(selective_risks, coverages):
+    assert (0, 0) in list(zip(selective_risks, coverages))
+    assert 1 in coverages
+
     # AURCC ( Area Under Risk-Coverage Curve)
-    if len(selective_risks) > 1:
-        aurcc = metrics.auc(selective_risks, coverages)
-    else:
-        aurcc = 0
+    aurcc = metrics.auc(selective_risks, coverages)
     return aurcc
 
 
