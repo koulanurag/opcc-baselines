@@ -132,9 +132,9 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
     _, action_size = init_action.shape
 
     # repeat for ensemble size
-    init_obs = torch.FloatTensor(init_obs)
+    init_obs = torch.DoubleTensor(init_obs)
     init_obs = init_obs.unsqueeze(1).repeat(1, network.num_ensemble, 1)
-    init_action = torch.FloatTensor(init_action)
+    init_action = torch.DoubleTensor(init_action)
     init_action = init_action.unsqueeze(1).repeat(1, network.num_ensemble, 1)
 
     # repeat for runs
