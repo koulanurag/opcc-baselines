@@ -484,7 +484,7 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
 
         # plot sr-coverage curve data
         for ensemble_count in sr_coverages_data:
-            for horizon, _data in sr_coverages_data[ensemble_count]:
+            for horizon, _data in sr_coverages_data[ensemble_count].items():
                 data = [[x, y] for (x, y) in zip(_data['coverage'],
                                                  _data['risk'])]
                 table = wandb.Table(data=data, columns=['coverage', 'risk'])
