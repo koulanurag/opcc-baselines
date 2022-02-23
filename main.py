@@ -418,8 +418,9 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
     sr_coverages_data = {}
     for ensemble_count in sorted(uncertainty_dict.keys()):
         horizons = sorted(uncertainty_dict[ensemble_count].keys())
-        for horizon in (horizons + [None]):
+        sr_coverages_data[ensemble_count] = {}
 
+        for horizon in (horizons + [None]):
             if horizon is None:  # get data for all horizons
                 v = defaultdict(lambda: [])
                 for _h in horizons:
@@ -451,8 +452,10 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
                                                 for _k, _v in _log.items()}))
 
             # log sr-coverage data
-            sr_coverages_data[ensemble_count][horizon]['risk'] = selective_risks
-            sr_coverages_data[ensemble_count][horizon]['coverage'] = coverages
+            sr_coverages_data[ensemble_count][horizon] = {
+                'risk': selective_risks,
+                'coverage': coverages
+            }
 
     eval_metric_df = pd.concat(eval_metric_df, ignore_index=True)
 
