@@ -293,25 +293,25 @@ def _train_dynamics(args, job_args, dynamics_args):
         wandb.finish()
 
 
-def sr_coverages(loss, confidences):
+def sr_coverages(loss, confidences, tau_interval=0.01):
     """
     Selective-risk Coverage
     """
-
-    # list of tuples (selective-risk, coverage)
-    sr_coverage = [(0, 0)]  # we begin with no risk (0) for no coverage(0)
-    for tau in np.arange(0, 1.01, 0.01):
+    # list of tuples (selective-risk, coverage, tau)
+    sr_coverage_tau = []
+    for tau in np.arange(0, 1 + 2 * tau_interval, tau_interval):
         non_abstain_filter = confidences >= tau
         if any(non_abstain_filter):
             selective_risk = np.sum(loss[non_abstain_filter])
             selective_risk /= np.sum(non_abstain_filter)
             coverage = np.mean(non_abstain_filter)
-            sr_coverage.append((selective_risk, coverage))
+            sr_coverage_tau.append((selective_risk, coverage, tau))
 
-    selective_risks, coverages = list(zip(*sorted(sr_coverage)))
+    selective_risks, coverages, taus = list(zip(*sorted(sr_coverage_tau)))
 
-    assert 0 in coverages and 1 in coverages
-    return selective_risks, coverages
+    assert selective_risks[0] == 0 and coverages[0] == 0
+    assert coverages[-1] == 1
+    return selective_risks, coverages, taus
 
 
 def area_under_rcc(selective_risks, coverages):
@@ -442,7 +442,8 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
             loss = np.logical_xor(v['prediction'], v['target'])
 
             # evaluation metrics
-            selective_risks, coverages = sr_coverages(loss, v['confidence'])
+            selective_risks, coverages, taus = sr_coverages(loss,
+                                                            v['confidence'])
             aurcc = area_under_rcc(selective_risks, coverages)
             rpp = reverse_pair_proportion(loss, v['confidence'])
             cr_k = coverage_resolution(coverages, k)
@@ -461,7 +462,8 @@ def _uncertainty_test(args, job_args, dynamics_args, queries_args,
             # log sr-coverage data
             sr_coverages_data[ensemble_count][horizon] = {
                 'risk': selective_risks,
-                'coverage': coverages
+                'coverage': coverages,
+                'taus': taus
             }
 
     eval_metric_df = pd.concat(eval_metric_df, ignore_index=True)
