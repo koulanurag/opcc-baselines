@@ -1,4 +1,3 @@
-import json
 import os
 
 import numpy as np
@@ -26,8 +25,10 @@ def metrics(data, key):
         inner_data = data[data[key] == _num]
         env_names = np.unique(inner_data['env_name'].values)
         for env_name in env_names:
-            aurcc = inner_data[inner_data['env_name'] == env_name][
-                'aurcc'].values
+            loss = inner_data[inner_data['env_name']
+                              == env_name]['loss'].values
+            aurcc = inner_data[inner_data['env_name']
+                               == env_name]['aurcc'].values
             rpp = inner_data[inner_data['env_name'] == env_name]['rpp'].values
             cr_10 = inner_data[inner_data['env_name'] == env_name][
                 'cr_10'].values
@@ -42,7 +43,10 @@ def metrics(data, key):
                                             'n': len(aurcc)},
                                     'cr_10': {'mean': cr_10.mean(),
                                               'std': cr_10.std(),
-                                              'n': len(cr_10)}
+                                              'n': len(cr_10)},
+                                    'loss': {'mean': loss.mean(),
+                                             'std': loss.std(),
+                                             'n': len(loss)}
                                     }
     return info
 
@@ -75,11 +79,13 @@ def latex_table(info_dict, category_name, table_name, path):
     tex += "\\begin{center} " + "\n" + \
            "\\begin{footnotesize} " + "\n" + \
            "\\begin{sc} " + "\n" + \
-           "\\begin{tabular}{|l | c | c | c| c | c |}" + "\n" + \
+           "\\begin{tabular}{|l | c | c | c| c | c | c |}" + "\n" + \
            "\\toprule" + "\n"
     tex += "Env. & " + table_name + " & AURCC$(\\downarrow)$ &" \
                                     " RPP$(\\downarrow)$ &" \
-                                    " $CR_K(\\uparrow)$ & runs \\\\" + '\n'
+                                    " $CR_K(\\uparrow)$ & " \
+                                    " loss(\\downarrow)$ & " \
+                                    "runs \\\\" + '\n'
     tex += "\\midrule" + '\n'
     for env_i, env_name in enumerate(info_dict.keys()):
         tex += "\multirow{" + str(len(info_dict[env_name])) \
@@ -90,6 +96,7 @@ def latex_table(info_dict, category_name, table_name, path):
                    + " & " + score(info_dict[env_name][cat]['aurcc']) \
                    + " & " + score(info_dict[env_name][cat]['rpp']) \
                    + " & " + score(info_dict[env_name][cat]['cr_10']) \
+                   + " & " + score(info_dict[env_name][cat]['loss']) \
                    + " & " + str(info_dict[env_name][cat]['aurcc']['n']) \
                    + " \\\\ \n"
         if env_i == len(info_dict) - 1:
