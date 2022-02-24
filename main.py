@@ -323,7 +323,7 @@ def area_under_rcc(selective_risks, coverages):
     assert 1 in coverages
 
     # AURCC ( Area Under Risk-Coverage Curve)
-    aurcc = metrics.auc(selective_risks, coverages)
+    aurcc = metrics.auc(x=coverages, y=selective_risks)
     return aurcc
 
 
