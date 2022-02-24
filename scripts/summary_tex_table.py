@@ -234,6 +234,22 @@ def generate_table_tex(category_name, data_df):
     latex_table(mixture_info, category_name, 'uncertainty-type',
                 os.path.join(root_dir, 'uncertainty-type'))
 
+    # ##############################
+    # normalization
+    # ##############################
+    norm_data = data_df[(data_df['constant_prior_scale'] == base_prior_scale)
+                        & (data_df['deterministic'] == base_deter)
+                        & (data_df['mixture'] == base_mixture)
+                        & (data_df['dynamics_type'] == base_dyn_type)
+                        & (data_df['clip_obs'] == base_clip_obs)
+                        & (data_df['clip_reward'] == base_clip_reward)
+                        & (data_df['uncertainty_type'] ==
+                           base_uncertainty_type)
+                        & (np.isnan(data_df['horizon'].values))]
+    norm_info = metrics(norm_data, 'normalize')
+    latex_table(norm_info, category_name, 'normalize',
+                os.path.join(root_dir, 'normalization'))
+
 
 def main():
     # combine data from multiple runs into a single dataframe
