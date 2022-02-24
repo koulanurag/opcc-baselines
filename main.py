@@ -297,20 +297,21 @@ def sr_coverages(loss, confidences, tau_interval=0.01):
     """
     Selective-risk Coverage
     """
-    # list of tuples (selective-risk, coverage, tau)
-    sr_coverage_tau = []
+    # list of tuples (coverage, selective-risk, tau)
+    coverage_sr_tau = []
     for tau in np.arange(0, 1 + 2 * tau_interval, tau_interval):
         non_abstain_filter = confidences >= tau
         if any(non_abstain_filter):
             selective_risk = np.sum(loss[non_abstain_filter])
             selective_risk /= np.sum(non_abstain_filter)
             coverage = np.mean(non_abstain_filter)
-            sr_coverage_tau.append((selective_risk, coverage, tau))
+            coverage_sr_tau.append((coverage, selective_risk, tau))
 
-    selective_risks, coverages, taus = list(zip(*sorted(sr_coverage_tau)))
+    coverages, selective_risks, taus = list(zip(*sorted(coverage_sr_tau)))
 
     assert selective_risks[0] == 0 and coverages[0] == 0
     assert coverages[-1] == 1
+
     return selective_risks, coverages, taus
 
 
