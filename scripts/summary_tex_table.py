@@ -120,7 +120,7 @@ def generate_table_tex(category_name, data_df):
 
     # base-model row
     base_prior_scale = 0
-    base_deter = False
+    base_deter = True
     base_mixture = False
     base_dyn_type = 'feed-forward'
     base_normalize = True
