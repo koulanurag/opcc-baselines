@@ -306,6 +306,9 @@ def sr_coverages(loss, confidences, tau_interval=0.01):
             selective_risk /= np.sum(non_abstain_filter)
             coverage = np.mean(non_abstain_filter)
             coverage_sr_tau.append((coverage, selective_risk, tau))
+        else:
+            # 0 risk for 0 coverage
+            coverage_sr_tau.append((0, 0, tau))
 
     coverages, selective_risks, taus = list(zip(*sorted(coverage_sr_tau)))
 
