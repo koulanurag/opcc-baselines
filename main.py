@@ -27,6 +27,7 @@ def _seed(seed=0, cuda=False):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    torch.random.manual_seed(seed)
     if cuda:
         torch.cuda.manual_seed(seed)
 
