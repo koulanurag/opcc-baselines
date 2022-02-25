@@ -127,9 +127,10 @@ class AgDynamicsNetwork(Base):
 
     def forward(self, obs, action):
         batch_size = obs.shape[0]
-        next_obs = torch.zeros((batch_size, self.obs_size), device=obs.device)
+        next_obs = torch.zeros((batch_size, self.obs_size),
+                               dtype=obs.dtype, device=obs.device)
         one_hot = torch.zeros((batch_size, self.obs_size + 1),
-                              device=obs.device)  # create obs
+                              dtype=obs.dtype, device=obs.device)  # create obs
         one_hot[:, 0] = 1.0
 
         # estimate prior
