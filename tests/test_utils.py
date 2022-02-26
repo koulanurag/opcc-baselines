@@ -1,7 +1,7 @@
 import gym
 import numpy as np
-import torch
 import pytest
+import torch
 
 
 class FakeNetwork:
@@ -18,12 +18,15 @@ class FakeNetwork:
         for batch_i in range(states.shape[0]):
             e_next_states, e_rewards, e_dones = [], [], []
             for ensemble in range(self.num_ensemble):
-                state = states[batch_i][ensemble]
-                action = actions[batch_i][ensemble]
+                state = states[batch_i][ensemble].cpu().numpy()
+                state = state.astype('float64')
+                action = actions[batch_i][ensemble].cpu().numpy()
+                action = action.astype('float32')
+
                 self.env.reset()
-                self.env.sim.set_state_from_flattened(state.cpu().numpy())
+                self.env.sim.set_state_from_flattened(state)
                 self.env.sim.forward()
-                _, reward, done, _ = self.env.step(action.cpu().numpy())
+                _, reward, done, _ = self.env.step(action)
                 next_state = self.env.sim.get_state().flatten()
                 e_next_states.append(next_state.tolist())
                 e_rewards.append(reward)
@@ -32,7 +35,8 @@ class FakeNetwork:
             next_states.append(e_next_states)
             rewards.append(e_rewards)
             dones.append(e_dones)
-        return torch.tensor(next_states), torch.tensor(rewards),\
+        return torch.tensor(next_states).double(),\
+               torch.tensor(rewards).double(), \
                torch.tensor(dones)
 
 
@@ -107,6 +111,10 @@ def test_ensemble_mixture(dynamics_type, prior_scale):
                                       deterministic=True,
                                       dynamics_type=dynamics_type,
                                       prior_scale=prior_scale)
+
+    for i in range(network.num_ensemble):
+        setattr(network, 'ensemble_{}'.format(i),
+                getattr(network, 'ensemble_{}'.format(i)).double())
 
     predict_1 = mc_return(network, init_obs, init_action, policy_a.actor,
                           horizon, device='cpu', runs=10, mixture=True,
