@@ -69,7 +69,7 @@ def test_mc_return():
                           horizon, device='cpu', runs=10,
                           mixture=False, eval_batch_size=128)
     predict_2 = mc_return(fake_network, init_obs, init_action, _policy,
-                          horizon, device='cpu', runs=10, mixture=False,
+                          horizon, device='cpu', runs=5, mixture=False,
                           eval_batch_size=128)
     target = query_batch['info']['return_a'][_filter]
     assert (np.round(predict_1, 1) == np.round(predict_2, 1)).all()
@@ -120,7 +120,7 @@ def test_ensemble_mixture(dynamics_type, prior_scale):
                           horizon, device='cpu', runs=10, mixture=True,
                           eval_batch_size=128, mixture_seed=1)
     predict_2 = mc_return(network, init_obs, init_action, policy_a.actor,
-                          horizon, device='cpu', runs=10, mixture=True,
+                          horizon, device='cpu', runs=5, mixture=True,
                           eval_batch_size=128, mixture_seed=1)
 
     predict_3 = mc_return(network, init_obs, init_action, policy_a.actor,
