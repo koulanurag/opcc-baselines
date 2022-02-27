@@ -131,15 +131,13 @@ def mc_return(network, init_obs, init_action, policy, horizon: int,
     batch_size, obs_size = init_obs.shape
     _, action_size = init_action.shape
 
-    # repeat for ensemble size
-    init_obs = torch.DoubleTensor(init_obs)
-    init_obs = init_obs.unsqueeze(1).repeat(1, network.num_ensemble, 1)
-    init_action = torch.DoubleTensor(init_action)
-    init_action = init_action.unsqueeze(1).repeat(1, network.num_ensemble, 1)
-
-    # repeat for runs
-    init_obs = init_obs.repeat(runs, 1, 1)
-    init_action = init_action.repeat(runs, 1, 1)
+    # repeat for ensemble size and runs
+    init_obs = torch.DoubleTensor(init_obs).unsqueeze(1).unsqueeze(1)
+    init_obs = init_obs.repeat(1, runs, network.num_ensemble, 1)
+    init_obs = init_obs.flatten(0, 1)
+    init_action = torch.DoubleTensor(init_action).unsqueeze(1).unsqueeze(1)
+    init_action = init_action.repeat(1, runs, network.num_ensemble, 1)
+    init_action = init_action.flatten(0, 1)
 
     returns = np.zeros((batch_size * runs, network.num_ensemble))
     for batch_idx in tqdm(range(0, returns.shape[0], eval_batch_size),
