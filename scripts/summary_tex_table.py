@@ -1,3 +1,4 @@
+import json
 import os
 
 import numpy as np
@@ -55,6 +56,8 @@ def prettify_env_name(env_name):
     if "d4rl:maze2d-" in env_name:
         x = env_name.split("d4rl:maze2d-")[1].split("-v")[0]
         return x
+    elif "Walker" in env_name:
+        return "Walker\\\\2d"
     else:
         x = env_name.split("-v")[0]
         return "\\\\".join(camel_case_split(x)[1:])
@@ -88,8 +91,11 @@ def latex_table(info_dict, category_name, table_name, path):
                                     "runs \\\\" + '\n'
     tex += "\\midrule" + '\n'
     for env_i, env_name in enumerate(info_dict.keys()):
-        tex += "\multirow{" + str(len(info_dict[env_name])) \
-               + "}{3.6em}{" + str(prettify_env_name(env_name)) + "}  "
+        if len(info_dict[env_name]) > 1:
+            tex += "\multirow{" + str(len(info_dict[env_name])) \
+                   + "}{3.6em}{" + str(prettify_env_name(env_name)) + "}  "
+        else:
+            tex += str(prettify_env_name(env_name)) + " "
         for cat in info_dict[env_name]:
             tex += "& " \
                    + str(prettify_category_name(cat)) \
@@ -100,9 +106,9 @@ def latex_table(info_dict, category_name, table_name, path):
                    + " & " + str(info_dict[env_name][cat]['aurcc']['n']) \
                    + " \\\\ \n"
         if env_i == len(info_dict) - 1:
-            tex += "\\bottomrule"
+            tex += "\\bottomrule \n"
         else:
-            tex += "\\midrule"
+            tex += "\\midrule \n"
     tex += "\\end{tabular}" + "\n"
     tex += "\\end{sc}" + "\n"
     tex += "\\end{footnotesize} " + "\n"
