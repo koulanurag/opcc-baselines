@@ -1,10 +1,11 @@
 import json
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
 import wandb
-import pickle
+
 
 def camel_case_split(str):
     start_idx = [i for i, e in enumerate(str)
@@ -74,6 +75,10 @@ def prettify_category_name(name):
         return name
 
 
+def sr_coverage_plot(risk, coverage, category_name, plot_name, path):
+    pass
+
+
 def latex_table(info_dict, category_name, table_name, path):
     tex = "\\begin{table}[t!]" + "\n" + \
           "\caption{Evaluation metrics for  \emph{" + table_name + "}" + \
@@ -121,6 +126,17 @@ def latex_table(info_dict, category_name, table_name, path):
     return tex
 
 
+def compress_rc_data(df):
+    risk = []
+    coverage = []
+    for tau in df['taus'].unique():
+        risk.append(df['risk'][df['taus'] == tau].values.tolist())
+        coverage.append(df['coverage'][df['taus'] == tau].values.tolist())
+
+    return np.mean(risk, axis=1), np.std(risk, axis=1), \
+           np.mean(coverage, axis=1), np.std(coverage, axis=1)
+
+
 def generate_graphics(category_name, data_df, sr_coverage_df):
     root_dir = os.path.join(os.getcwd(), category_name)
 
@@ -146,28 +162,28 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                         & (np.isnan(data_df['horizon'].values))]
 
     base_sr_coverage_data = sr_coverage_df[
-                        (sr_coverage_df['constant_prior_scale']
-                         == base_prior_scale)
-                        & (sr_coverage_df['deterministic'] == base_deter)
-                        & (sr_coverage_df['mixture'] == base_mixture)
-                        & (sr_coverage_df['dynamics_type'] == base_dyn_type)
-                        & (sr_coverage_df['normalize'] == base_normalize)
-                        & (sr_coverage_df['clip_obs'] == base_clip_obs)
-                        & (sr_coverage_df['clip_reward'] == base_clip_reward)
-                        & (sr_coverage_df['uncertainty_type'] ==
-                           base_uncertainty_type)
-                        & (np.isnan(sr_coverage_df['horizon'].values))]
+        (sr_coverage_df['constant_prior_scale']
+         == base_prior_scale)
+        & (sr_coverage_df['deterministic'] == base_deter)
+        & (sr_coverage_df['mixture'] == base_mixture)
+        & (sr_coverage_df['dynamics_type'] == base_dyn_type)
+        & (sr_coverage_df['normalize'] == base_normalize)
+        & (sr_coverage_df['clip_obs'] == base_clip_obs)
+        & (sr_coverage_df['clip_reward'] == base_clip_reward)
+        & (sr_coverage_df['uncertainty_type'] ==
+           base_uncertainty_type)
+        & (np.isnan(sr_coverage_df['horizon'].values))]
 
     # ensemble-count
     ensemble_count_info = metrics(base_data, 'ensemble_count')
     latex_table(ensemble_count_info, category_name, 'ensemble-count',
                 os.path.join(root_dir, 'ensemble-count'))
+    risk, risk_stds, coverage, coverage_std = compress_rc_data(sr_coverage_df)
+    sr_coverage_plot(ensemble_count_info, category_name, 'ensemble-count',
+                     os.path.join(root_dir, 'ensemble-count'))
 
     dataset_quality_info = metrics(base_data, 'dataset_name')
     latex_table(dataset_quality_info, category_name, 'dataset-quality',
-                os.path.join(root_dir, 'dataset-quality'))
-    dataset_quality_info
-    sr_coverage_plot(dataset_quality_info, category_name, 'dataset-quality',
                 os.path.join(root_dir, 'dataset-quality'))
 
     # horizon-type
@@ -292,68 +308,84 @@ def main():
                         filters={'state': 'finished'}):
         print(run_i, run)
         run_i += 1
+
+        # restore evaluation metrics
         table_file = wandb.restore(run.summary.get('eval-metrics').get("path"),
                                    run_path='/'.join(run.path))
         table_str = table_file.read()
         table_dict = json.loads(table_str)
         query_df = pd.DataFrame(**table_dict)
 
+        # restore rcc-curve data
         _coverage_dict = pickle.load(open(wandb.restore("sr_coverage_dict.pkl",
-                                        "/".join(run.path)).name,'rb'))
-        _coverage_df=[]
+                                                        "/".join(run.path)).name, 'rb'))
+        _coverage_df = []
         for count in _coverage_dict:
-            for horizon in _coverage_dict[count]:
-                _coverage_df.append(pd.DataFrame({**{'ensemble-count': count,
-                                                  'horizon': horizon},
-                                                  **_coverage_dict}))
+            for horizon, count_horizon_info in _coverage_dict[count].items():
+                _coverage_df.append(pd.DataFrame.from_dict(
+                    {**count_horizon_info,
+                     **{'ensemble-count': [count for _ in
+                                           range(len(count_horizon_info['taus']))],
+                        'horizon': [horizon for _ in
+                                    range(len(count_horizon_info['taus']))]}}))
         _coverage_df = pd.concat(_coverage_df)
 
         for _df in [query_df, _coverage_df]:
             _df['env_name'] = [run.config['env_name']
-                                    for _ in range(len(_df))]
+                               for _ in range(len(_df))]
             _df['dataset_name'] = [run.config['dataset_name']
-                                        for _ in range(len(_df))]
+                                   for _ in range(len(_df))]
 
             # dynamics factors
             _df['dynamics_type'] = [run.config['dynamics_type']
-                                         for _ in range(len(_df))]
+                                    for _ in range(len(_df))]
             _df['deterministic'] = [run.config['deterministic']
-                                         for _ in range(len(_df))]
+                                    for _ in range(len(_df))]
             _df['constant_prior_scale'] = [run.config['constant_prior_scale']
-                                                for _ in range(len(_df))]
+                                           for _ in range(len(_df))]
             _df['dynamics_seed'] = [run.config['dynamics_seed']
-                                         for _ in range(len(_df))]
+                                    for _ in range(len(_df))]
             _df['normalize'] = [run.config['normalize']
-                                     for _ in range(len(_df))]
+                                for _ in range(len(_df))]
 
             # evaluation factors
             _df['mixture'] = [run.config['mixture']
-                                   for _ in range(len(_df))]
+                              for _ in range(len(_df))]
             _df['clip_obs'] = [run.config['clip_obs']
-                                    for _ in range(len(_df))]
+                               for _ in range(len(_df))]
             _df['clip_reward'] = [run.config['clip_reward']
-                                       for _ in range(len(_df))]
+                                  for _ in range(len(_df))]
 
             # uncertainty factors
             _df['uncertainty_type'] = [run.config['uncertainty_test_type']
-                                            for _ in range(len(_df))]
+                                       for _ in range(len(_df))]
 
         eval_metrics_df.append(query_df)
         sr_coverage_df.append(_coverage_df)
 
+        if run_i > 20:
+            break
+
     eval_metrics_df = pd.concat(eval_metrics_df)
     sr_coverage_df = pd.concat(sr_coverage_df)
+    eval_metrics_df.to_pickle('eval_metrics_df.pkl')
+    sr_coverage_df.to_pickle('sr_coverage_df.pkl')
+
+    eval_metrics_df = pd.read_pickle('eval_metrics_df.pkl')
+    sr_coverage_df = pd.read_pickle('sr_coverage_df.pkl')
 
     gym_mujoco_envs = ['Hopper-v2', 'HalfCheetah-v2', 'Walker2d-v2']
     maze2d_envs = ['d4rl:maze2d-open-v0', 'd4rl:maze2d-umaze-v1',
                    'd4rl:maze2d-medium-v1', 'd4rl:maze2d-large-v1']
     for category_name, env_names in [('maze', maze2d_envs),
                                      ('gym-mujoco', gym_mujoco_envs)]:
-        generate_graphics(category_name,
-                           eval_metrics_df[eval_metrics_df['env_name'].
-                           isin(env_names)],
-                           sr_coverage_df[sr_coverage_df['env_name'].
-                           isin(env_names)],)
+        if len(eval_metrics_df[eval_metrics_df['env_name'].
+                isin(env_names)]) > 0:
+            generate_graphics(category_name,
+                              eval_metrics_df[eval_metrics_df['env_name'].
+                              isin(env_names)],
+                              sr_coverage_df[sr_coverage_df['env_name'].
+                              isin(env_names)])
 
 
 if __name__ == '__main__':
