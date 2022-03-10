@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 import wandb
-
+import pickle
 
 def camel_case_split(str):
     start_idx = [i for i, e in enumerate(str)
@@ -87,7 +87,7 @@ def latex_table(info_dict, category_name, table_name, path):
     tex += "Env. & " + table_name + " & AURCC$(\\downarrow)$ &" \
                                     " RPP$(\\downarrow)$ &" \
                                     " $CR_K(\\uparrow)$ & " \
-                                    " loss(\\downarrow)$ & " \
+                                    " loss$(\\downarrow)$ & " \
                                     "runs \\\\" + '\n'
     tex += "\\midrule" + '\n'
     for env_i, env_name in enumerate(info_dict.keys()):
@@ -121,7 +121,7 @@ def latex_table(info_dict, category_name, table_name, path):
     return tex
 
 
-def generate_table_tex(category_name, data_df):
+def generate_graphics(category_name, data_df, sr_coverage_df):
     root_dir = os.path.join(os.getcwd(), category_name)
 
     # base-model row
@@ -144,12 +144,30 @@ def generate_table_tex(category_name, data_df):
                         & (data_df['uncertainty_type'] ==
                            base_uncertainty_type)
                         & (np.isnan(data_df['horizon'].values))]
+
+    base_sr_coverage_data = sr_coverage_df[
+                        (sr_coverage_df['constant_prior_scale']
+                         == base_prior_scale)
+                        & (sr_coverage_df['deterministic'] == base_deter)
+                        & (sr_coverage_df['mixture'] == base_mixture)
+                        & (sr_coverage_df['dynamics_type'] == base_dyn_type)
+                        & (sr_coverage_df['normalize'] == base_normalize)
+                        & (sr_coverage_df['clip_obs'] == base_clip_obs)
+                        & (sr_coverage_df['clip_reward'] == base_clip_reward)
+                        & (sr_coverage_df['uncertainty_type'] ==
+                           base_uncertainty_type)
+                        & (np.isnan(sr_coverage_df['horizon'].values))]
+
     # ensemble-count
     ensemble_count_info = metrics(base_data, 'ensemble_count')
     latex_table(ensemble_count_info, category_name, 'ensemble-count',
                 os.path.join(root_dir, 'ensemble-count'))
+
     dataset_quality_info = metrics(base_data, 'dataset_name')
     latex_table(dataset_quality_info, category_name, 'dataset-quality',
+                os.path.join(root_dir, 'dataset-quality'))
+    dataset_quality_info
+    sr_coverage_plot(dataset_quality_info, category_name, 'dataset-quality',
                 os.path.join(root_dir, 'dataset-quality'))
 
     # horizon-type
@@ -268,56 +286,74 @@ def main():
     # combine data from multiple runs into a single dataframe
     api = wandb.Api()
     eval_metrics_df = []
+    sr_coverage_df = []
+    run_i = 0
     for run in api.runs('koulanurag/opcc-baselines-uncertainty-test',
                         filters={'state': 'finished'}):
-        print(run)
+        print(run_i, run)
+        run_i += 1
         table_file = wandb.restore(run.summary.get('eval-metrics').get("path"),
                                    run_path='/'.join(run.path))
         table_str = table_file.read()
         table_dict = json.loads(table_str)
         query_df = pd.DataFrame(**table_dict)
 
-        query_df['env_name'] = [run.config['env_name']
-                                for _ in range(len(query_df))]
-        query_df['dataset_name'] = [run.config['dataset_name']
-                                    for _ in range(len(query_df))]
+        _coverage_dict = pickle.load(open(wandb.restore("sr_coverage_dict.pkl",
+                                        "/".join(run.path)).name,'rb'))
+        _coverage_df=[]
+        for count in _coverage_dict:
+            for horizon in _coverage_dict[count]:
+                _coverage_df.append(pd.DataFrame({**{'ensemble-count': count,
+                                                  'horizon': horizon},
+                                                  **_coverage_dict}))
+        _coverage_df = pd.concat(_coverage_df)
 
-        # dynamics factors
-        query_df['dynamics_type'] = [run.config['dynamics_type']
-                                     for _ in range(len(query_df))]
-        query_df['deterministic'] = [run.config['deterministic']
-                                     for _ in range(len(query_df))]
-        query_df['constant_prior_scale'] = [run.config['constant_prior_scale']
-                                            for _ in range(len(query_df))]
-        query_df['dynamics_seed'] = [run.config['dynamics_seed']
-                                     for _ in range(len(query_df))]
-        query_df['normalize'] = [run.config['normalize']
-                                 for _ in range(len(query_df))]
+        for _df in [query_df, _coverage_df]:
+            _df['env_name'] = [run.config['env_name']
+                                    for _ in range(len(_df))]
+            _df['dataset_name'] = [run.config['dataset_name']
+                                        for _ in range(len(_df))]
 
-        # evaluation factors
-        query_df['mixture'] = [run.config['mixture']
-                               for _ in range(len(query_df))]
-        query_df['clip_obs'] = [run.config['clip_obs']
-                                for _ in range(len(query_df))]
-        query_df['clip_reward'] = [run.config['clip_reward']
-                                   for _ in range(len(query_df))]
+            # dynamics factors
+            _df['dynamics_type'] = [run.config['dynamics_type']
+                                         for _ in range(len(_df))]
+            _df['deterministic'] = [run.config['deterministic']
+                                         for _ in range(len(_df))]
+            _df['constant_prior_scale'] = [run.config['constant_prior_scale']
+                                                for _ in range(len(_df))]
+            _df['dynamics_seed'] = [run.config['dynamics_seed']
+                                         for _ in range(len(_df))]
+            _df['normalize'] = [run.config['normalize']
+                                     for _ in range(len(_df))]
 
-        # uncertainty factors
-        query_df['uncertainty_type'] = [run.config['uncertainty_test_type']
-                                        for _ in range(len(query_df))]
+            # evaluation factors
+            _df['mixture'] = [run.config['mixture']
+                                   for _ in range(len(_df))]
+            _df['clip_obs'] = [run.config['clip_obs']
+                                    for _ in range(len(_df))]
+            _df['clip_reward'] = [run.config['clip_reward']
+                                       for _ in range(len(_df))]
+
+            # uncertainty factors
+            _df['uncertainty_type'] = [run.config['uncertainty_test_type']
+                                            for _ in range(len(_df))]
 
         eval_metrics_df.append(query_df)
+        sr_coverage_df.append(_coverage_df)
 
     eval_metrics_df = pd.concat(eval_metrics_df)
+    sr_coverage_df = pd.concat(sr_coverage_df)
 
     gym_mujoco_envs = ['Hopper-v2', 'HalfCheetah-v2', 'Walker2d-v2']
     maze2d_envs = ['d4rl:maze2d-open-v0', 'd4rl:maze2d-umaze-v1',
                    'd4rl:maze2d-medium-v1', 'd4rl:maze2d-large-v1']
     for category_name, env_names in [('maze', maze2d_envs),
                                      ('gym-mujoco', gym_mujoco_envs)]:
-        generate_table_tex(category_name,
+        generate_graphics(category_name,
                            eval_metrics_df[eval_metrics_df['env_name'].
-                           isin(env_names)])
+                           isin(env_names)],
+                           sr_coverage_df[sr_coverage_df['env_name'].
+                           isin(env_names)],)
 
 
 if __name__ == '__main__':
