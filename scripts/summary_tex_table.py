@@ -2,6 +2,7 @@ import json
 import os
 import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import wandb
@@ -21,19 +22,31 @@ def score(metric_info):
                   + str(round(metric_info['std'], 2))) + "$"
 
 
-def metrics(data, key):
+def metrics(metrics_data, sr_coverage_data, key):
     info = {}
-    for _num in np.unique(data[key].values):
-        inner_data = data[data[key] == _num]
-        env_names = np.unique(inner_data['env_name'].values)
+    for _num in np.unique(metrics_data[key].values):
+        env_names = np.unique(metrics_data[metrics_data[key] == _num]
+                              ['env_name'].values)
         for env_name in env_names:
-            loss = inner_data[inner_data['env_name']
-                              == env_name]['loss'].values
-            aurcc = inner_data[inner_data['env_name']
-                               == env_name]['aurcc'].values
-            rpp = inner_data[inner_data['env_name'] == env_name]['rpp'].values
-            cr_10 = inner_data[inner_data['env_name'] == env_name][
-                'cr_10'].values
+            key_metric_data = metrics_data[(metrics_data[key] == _num) &
+                                           (metrics_data['env_name'] ==
+                                            env_name)]
+            loss = key_metric_data['loss'].values
+            aurcc = key_metric_data['aurcc'].values
+            rpp = key_metric_data['rpp'].values
+            cr_10 = key_metric_data['cr_10'].values
+
+            risk = []
+            coverage = []
+            key_src_data = sr_coverage_data[(sr_coverage_data[key] == _num) &
+                                            (sr_coverage_data['env_name']
+                                             == env_name)]
+            for tau in key_src_data['taus'].unique():
+                risk.append(key_src_data['risk'][key_src_data['taus']
+                                                 == tau].values.tolist())
+                coverage.append(key_src_data['coverage']
+                                [key_src_data['taus'] == tau].values.tolist())
+
             if env_name not in info:
                 info[env_name] = {}
 
@@ -48,8 +61,15 @@ def metrics(data, key):
                                               'n': len(cr_10)},
                                     'loss': {'mean': loss.mean(),
                                              'std': loss.std(),
-                                             'n': len(loss)}
-                                    }
+                                             'n': len(loss)},
+                                    'risk': {'mean': np.mean(risk, axis=1),
+                                             'std': np.std(risk, axis=1),
+                                             'n': len(risk)},
+                                    'coverage': {'mean': np.mean(coverage,
+                                                                 axis=1),
+                                                 'std': np.std(coverage,
+                                                               axis=1),
+                                                 'n': len(coverage)}}
     return info
 
 
@@ -75,8 +95,39 @@ def prettify_category_name(name):
         return name
 
 
-def sr_coverage_plot(risk, coverage, category_name, plot_name, path):
-    pass
+def sr_coverage_plot(info_dict, category_name, plot_name, path):
+    num_rows = 1
+    num_cols = len(info_dict.keys())
+    fig, axs = plt.subplots(num_rows, num_cols,
+                            figsize=(2.2 * num_cols, 2 * num_rows),
+                            layout='constrained', squeeze=False)
+    color_dict = {}
+    color_picker = list(plt.get_cmap('tab10').colors)
+    for env_i, env_name in enumerate(info_dict.keys()):
+        axs[0, env_i].set(ylabel="selective-risk")
+        axs[0, env_i].set(xlabel="coverage")
+        axs[0, env_i].grid(True)
+        axs[0, env_i].set_title(prettify_env_name(env_name))
+
+        for cat in info_dict[env_name]:
+            if cat not in color_dict:
+                color_dict[cat] = color_picker.pop(0)
+
+            x = info_dict[env_name][cat]['coverage']['mean']
+            y = info_dict[env_name][cat]['risk']['mean']
+            x, y = zip(*sorted(zip(x, y)))
+            axs[0, env_i].plot(x, y, color=color_dict[cat], label=cat)
+
+    axs[0, 0].legend().set_visible(False)
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+
+    kwargs = {'ncol': min(len(labels), 5),
+              'bbox_to_anchor': (0.5, 0.001), 'loc': 'center'}
+    fig.legend(handles, labels, **kwargs)
+
+    os.makedirs(path, exist_ok=True)
+    fig.savefig(os.path.join(path, 'sr_coverage.png'), bbox_inches="tight")
+    plt.close(fig)
 
 
 def latex_table(info_dict, category_name, table_name, path):
@@ -126,17 +177,6 @@ def latex_table(info_dict, category_name, table_name, path):
     return tex
 
 
-def compress_rc_data(df):
-    risk = []
-    coverage = []
-    for tau in df['taus'].unique():
-        risk.append(df['risk'][df['taus'] == tau].values.tolist())
-        coverage.append(df['coverage'][df['taus'] == tau].values.tolist())
-
-    return np.mean(risk, axis=1), np.std(risk, axis=1), \
-           np.mean(coverage, axis=1), np.std(coverage, axis=1)
-
-
 def generate_graphics(category_name, data_df, sr_coverage_df):
     root_dir = os.path.join(os.getcwd(), category_name)
 
@@ -175,16 +215,20 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
         & (np.isnan(sr_coverage_df['horizon'].values))]
 
     # ensemble-count
-    ensemble_count_info = metrics(base_data, 'ensemble_count')
+    ensemble_count_info = metrics(base_data, base_sr_coverage_data,
+                                  'ensemble_count')
     latex_table(ensemble_count_info, category_name, 'ensemble-count',
                 os.path.join(root_dir, 'ensemble-count'))
-    risk, risk_stds, coverage, coverage_std = compress_rc_data(sr_coverage_df)
     sr_coverage_plot(ensemble_count_info, category_name, 'ensemble-count',
                      os.path.join(root_dir, 'ensemble-count'))
 
-    dataset_quality_info = metrics(base_data, 'dataset_name')
+    # dataset
+    dataset_quality_info = metrics(base_data, base_sr_coverage_data,
+                                   'dataset_name')
     latex_table(dataset_quality_info, category_name, 'dataset-quality',
                 os.path.join(root_dir, 'dataset-quality'))
+    sr_coverage_plot(dataset_quality_info, category_name, 'dataset-quality',
+                     os.path.join(root_dir, 'dataset-quality'))
 
     # horizon-type
     hor_data = data_df[(data_df['constant_prior_scale'] == base_prior_scale)
@@ -197,9 +241,24 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                        & (data_df['uncertainty_type'] ==
                           base_uncertainty_type)
                        & (~np.isnan(data_df['horizon'].values))]
-    horizon_info = metrics(hor_data, 'horizon')
+
+    hor_sr_data = sr_coverage_df[
+        (sr_coverage_df['constant_prior_scale'] == base_prior_scale)
+        & (sr_coverage_df['deterministic'] == base_deter)
+        & (sr_coverage_df['mixture'] == base_mixture)
+        & (sr_coverage_df['dynamics_type'] == base_dyn_type)
+        & (sr_coverage_df['normalize'] == base_normalize)
+        & (sr_coverage_df['clip_obs'] == base_clip_obs)
+        & (sr_coverage_df['clip_reward'] == base_clip_reward)
+        & (sr_coverage_df['uncertainty_type'] == base_uncertainty_type)
+        & (~np.isnan(sr_coverage_df['horizon'].values))
+        ]
+
+    horizon_info = metrics(hor_data, hor_sr_data, 'horizon')
     latex_table(horizon_info, category_name, 'horizon',
                 os.path.join(root_dir, 'horizon'))
+    sr_coverage_plot(horizon_info, category_name, 'horizon',
+                     os.path.join(root_dir, 'horizon'))
 
     # ##############################
     # constant-prior
@@ -213,9 +272,23 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                          & (data_df['uncertainty_type'] ==
                             base_uncertainty_type)
                          & np.isnan(data_df['horizon'].values)]
-    prior_info = metrics(prior_data, 'constant_prior_scale')
+
+    prior_sr_data = sr_coverage_df[
+        (sr_coverage_df['deterministic'] == base_deter)
+        & (sr_coverage_df['mixture'] == base_mixture)
+        & (sr_coverage_df['dynamics_type'] == base_dyn_type)
+        & (sr_coverage_df['normalize'] == base_normalize)
+        & (sr_coverage_df['clip_obs'] == base_clip_obs)
+        & (sr_coverage_df['clip_reward'] == base_clip_reward)
+        & (sr_coverage_df['uncertainty_type'] ==
+           base_uncertainty_type)
+        & np.isnan(sr_coverage_df['horizon'].values)]
+
+    prior_info = metrics(prior_data, prior_sr_data, 'constant_prior_scale')
     latex_table(prior_info, category_name, 'prior-scale',
                 os.path.join(root_dir, 'prior-scale'))
+    sr_coverage_plot(prior_info, category_name, 'prior-scale',
+                     os.path.join(root_dir, 'prior-scale'))
 
     # ##############################
     # deterministic
@@ -230,9 +303,28 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                          & (data_df['uncertainty_type'] ==
                             base_uncertainty_type)
                          & np.isnan(data_df['horizon'].values)]
-    deterministic_info = metrics(deter_data, 'deterministic')
+    deter_sr_data = sr_coverage_df[(sr_coverage_df['constant_prior_scale']
+                                    == base_prior_scale)
+                                   & (sr_coverage_df[
+                                          'mixture'] == base_mixture)
+                                   & (sr_coverage_df[
+                                          'dynamics_type'] == base_dyn_type)
+                                   & (sr_coverage_df[
+                                          'normalize'] == base_normalize)
+                                   & (sr_coverage_df[
+                                          'clip_obs'] == base_clip_obs)
+                                   & (sr_coverage_df[
+                                          'clip_reward'] == base_clip_reward)
+                                   & (sr_coverage_df['uncertainty_type'] ==
+                                      base_uncertainty_type)
+                                   & np.isnan(
+        sr_coverage_df['horizon'].values)]
+
+    deterministic_info = metrics(deter_data, deter_sr_data, 'deterministic')
     latex_table(deterministic_info, category_name, 'deterministic',
                 os.path.join(root_dir, 'deterministic'))
+    sr_coverage_plot(deterministic_info, category_name, 'deterministic',
+                     os.path.join(root_dir, 'deterministic'))
 
     # ##############################
     # dynamics-type
@@ -246,9 +338,22 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                        & (data_df['uncertainty_type'] ==
                           base_uncertainty_type)
                        & np.isnan(data_df['horizon'])]
-    dynamics_type_info = metrics(dyn_data, 'dynamics_type')
+    dyn_sr_data = sr_coverage_df[
+        (sr_coverage_df['constant_prior_scale'] == base_prior_scale)
+        & (sr_coverage_df['deterministic'] == base_deter)
+        & (sr_coverage_df['mixture'] == base_mixture)
+        & (sr_coverage_df['normalize'] == base_normalize)
+        & (sr_coverage_df['clip_obs'] == base_clip_obs)
+        & (sr_coverage_df['clip_reward'] == base_clip_reward)
+        & (sr_coverage_df['uncertainty_type'] ==
+           base_uncertainty_type)
+        & np.isnan(sr_coverage_df['horizon'])]
+
+    dynamics_type_info = metrics(dyn_data, dyn_sr_data, 'dynamics_type')
     latex_table(dynamics_type_info, category_name, 'dynamics-type',
                 os.path.join(root_dir, 'dynamics-type'))
+    sr_coverage_plot(dynamics_type_info, category_name, 'dynamics-type',
+                     os.path.join(root_dir, 'dynamics-type'))
 
     # ##############################
     # mixture
@@ -262,9 +367,27 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                        & (data_df['uncertainty_type'] ==
                           base_uncertainty_type)
                        & np.isnan(data_df['horizon'])]
-    mixture_info = metrics(mix_data, 'mixture')
+    mix_sr_data = sr_coverage_df[(sr_coverage_df['constant_prior_scale']
+                                  == base_prior_scale)
+                                 & (sr_coverage_df[
+                                        'deterministic'] == base_deter)
+                                 & (sr_coverage_df[
+                                        'dynamics_type'] == base_dyn_type)
+                                 & (sr_coverage_df[
+                                        'normalize'] == base_normalize)
+                                 & (sr_coverage_df[
+                                        'clip_obs'] == base_clip_obs)
+                                 & (sr_coverage_df[
+                                        'clip_reward'] == base_clip_reward)
+                                 & (sr_coverage_df['uncertainty_type'] ==
+                                    base_uncertainty_type)
+                                 & np.isnan(sr_coverage_df['horizon'])]
+
+    mixture_info = metrics(mix_data, mix_sr_data, 'mixture')
     latex_table(mixture_info, category_name, 'mixture',
                 os.path.join(root_dir, 'mixture'))
+    sr_coverage_plot(mixture_info, category_name, 'mixture',
+                     os.path.join(root_dir, 'mixture'))
 
     # ##############################
     # uncertainty-test type
@@ -277,9 +400,27 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                         & (data_df['clip_obs'] == base_clip_obs)
                         & (data_df['clip_reward'] == base_clip_reward)
                         & (np.isnan(data_df['horizon'].values))]
-    mixture_info = metrics(type_data, 'uncertainty_type')
+    type_sr_data = sr_coverage_df[(sr_coverage_df['constant_prior_scale']
+                                   == base_prior_scale)
+                                  & (sr_coverage_df[
+                                         'deterministic'] == base_deter)
+                                  & (sr_coverage_df['mixture'] == base_mixture)
+                                  & (sr_coverage_df[
+                                         'dynamics_type'] == base_dyn_type)
+                                  & (sr_coverage_df[
+                                         'normalize'] == base_normalize)
+                                  & (sr_coverage_df[
+                                         'clip_obs'] == base_clip_obs)
+                                  & (sr_coverage_df[
+                                         'clip_reward'] == base_clip_reward)
+                                  & (np.isnan(
+        sr_coverage_df['horizon'].values))]
+
+    mixture_info = metrics(type_data, type_sr_data, 'uncertainty_type')
     latex_table(mixture_info, category_name, 'uncertainty-type',
                 os.path.join(root_dir, 'uncertainty-type'))
+    sr_coverage_plot(mixture_info, category_name, 'uncertainty-type',
+                     os.path.join(root_dir, 'uncertainty-type'))
 
     # ##############################
     # normalization
@@ -293,9 +434,26 @@ def generate_graphics(category_name, data_df, sr_coverage_df):
                         & (data_df['uncertainty_type'] ==
                            base_uncertainty_type)
                         & (np.isnan(data_df['horizon'].values))]
-    norm_info = metrics(norm_data, 'normalize')
+    norm_sr_data = sr_coverage_df[(sr_coverage_df['constant_prior_scale']
+                                   == base_prior_scale)
+                                  & (sr_coverage_df[
+                                         'deterministic'] == base_deter)
+                                  & (sr_coverage_df['mixture'] == base_mixture)
+                                  & (sr_coverage_df[
+                                         'dynamics_type'] == base_dyn_type)
+                                  & (sr_coverage_df[
+                                         'clip_obs'] == base_clip_obs)
+                                  & (sr_coverage_df[
+                                         'clip_reward'] == base_clip_reward)
+                                  & (sr_coverage_df['uncertainty_type'] ==
+                                     base_uncertainty_type)
+                                  & (np.isnan(sr_coverage_df['horizon']
+                                              .values))]
+    norm_info = metrics(norm_data, norm_sr_data, 'normalize')
     latex_table(norm_info, category_name, 'normalize',
                 os.path.join(root_dir, 'normalization'))
+    sr_coverage_plot(norm_info, category_name, 'normalize',
+                     os.path.join(root_dir, 'normalization'))
 
 
 def main():
@@ -317,15 +475,18 @@ def main():
         query_df = pd.DataFrame(**table_dict)
 
         # restore rcc-curve data
-        _coverage_dict = pickle.load(open(wandb.restore("sr_coverage_dict.pkl",
-                                                        "/".join(run.path)).name, 'rb'))
+        _coverage_dict = pickle.load(
+            open(wandb.restore("sr_coverage_dict.pkl",
+                               "/".join(run.path), replace=True).name,
+                 'rb'))
         _coverage_df = []
         for count in _coverage_dict:
             for horizon, count_horizon_info in _coverage_dict[count].items():
                 _coverage_df.append(pd.DataFrame.from_dict(
                     {**count_horizon_info,
-                     **{'ensemble-count': [count for _ in
-                                           range(len(count_horizon_info['taus']))],
+                     **{'ensemble_count':
+                            [count for _ in range(len(count_horizon_info[
+                                                          'taus']))],
                         'horizon': [horizon for _ in
                                     range(len(count_horizon_info['taus']))]}}))
         _coverage_df = pd.concat(_coverage_df)
@@ -363,24 +524,21 @@ def main():
         eval_metrics_df.append(query_df)
         sr_coverage_df.append(_coverage_df)
 
-        if run_i > 20:
-            break
-
     eval_metrics_df = pd.concat(eval_metrics_df)
     sr_coverage_df = pd.concat(sr_coverage_df)
     eval_metrics_df.to_pickle('eval_metrics_df.pkl')
     sr_coverage_df.to_pickle('sr_coverage_df.pkl')
 
-    eval_metrics_df = pd.read_pickle('eval_metrics_df.pkl')
-    sr_coverage_df = pd.read_pickle('sr_coverage_df.pkl')
+    # eval_metrics_df = pd.read_pickle('eval_metrics_df.pkl')
+    # sr_coverage_df = pd.read_pickle('sr_coverage_df.pkl')
 
     gym_mujoco_envs = ['Hopper-v2', 'HalfCheetah-v2', 'Walker2d-v2']
     maze2d_envs = ['d4rl:maze2d-open-v0', 'd4rl:maze2d-umaze-v1',
                    'd4rl:maze2d-medium-v1', 'd4rl:maze2d-large-v1']
     for category_name, env_names in [('maze', maze2d_envs),
                                      ('gym-mujoco', gym_mujoco_envs)]:
-        if len(eval_metrics_df[eval_metrics_df['env_name'].
-                isin(env_names)]) > 0:
+        if len(eval_metrics_df[eval_metrics_df['env_name'].isin(env_names)]) \
+                > 0:
             generate_graphics(category_name,
                               eval_metrics_df[eval_metrics_df['env_name'].
                               isin(env_names)],
