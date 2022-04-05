@@ -48,7 +48,7 @@ jobs:
           python3 -m pip install flake8
           pip3 install pytest pytest_cases
           pip3 install torch==1.10.2+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
-          pip3 install git+https:koulanurag:${{secrets.AUTH_TOKEN}}/github.com/koulanurag/opcc@main#egg=opcc
+          pip3 install git+https://github.com/koulanurag/opcc@main#egg=opcc
           pip3 install -r requirements.txt
       - name: Lint with flake8
         run: |
