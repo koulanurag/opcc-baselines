@@ -73,7 +73,7 @@ python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dyna
 | Optional Arguments              | Description                                                                                             |
 |:--------------------------------|:--------------------------------------------------------------------------------------------------------|
 | `--restore-dynamics-from-wandb` | restore model from wandb run (default: False)                                                           |
-| `--wandb-dynamics-run-id `      | wandb run id if restoring model (default: None)                                                         |
+| `--wandb-dynamics-run-path `      | wandb run id if restoring model (default: None)                                                         |
 | `--mixture`                     | If enabled, randomly select ensemble models at<br/> each step of query evaluation<br/> (default: False) |
 | `--eval-runs`                   | run count for each query evaluation (default: 1)                                                        |
 | `--eval-batch-size`             | batch size for query evaluation (default: 128)                                                          |
@@ -97,7 +97,7 @@ python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wan
 |:------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
 | `--uncertainty-test-type`<br/>`{paired-confidence-interval,`<br/>`unpaired-confidence-interval,`<br/>`ensemble-voting}` | type of uncertainty test  (default:ensemble-voting)   |
 | `--restore-query-eval-data-from-wandb`                                                                                  | get query evaluation data from wandb (default: False) |
-| `--wandb-query-eval-data-run-id`                                                                                        | wandb run id having query eval data (default: None)   |
+| `--wandb-query-eval-data-run-path`                                                                                        | wandb run id having query eval data (default: None)   |
 
 ## Reproducibility
 
