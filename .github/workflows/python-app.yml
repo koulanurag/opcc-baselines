@@ -60,4 +60,4 @@ jobs:
         run: |
           export MUJOCO_PY_MUJOCO_PATH=$HOME/.mujoco/mujoco200_linux
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200_linux/bin
-          pytest -v
+          python -m pytest -v # adds the current directory in the PYTHONPATH and then runs test
