@@ -67,7 +67,7 @@ python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 --dataset 1
 ```
 - Restoring dynamics from wandb:
 ```bash
-python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dynamics-run-path koulanurag/opcc-baselines-train-dynamics/ahkjhdk
+python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dynamics-run-path <username>/<project-name>/<run-id>
 ```
 
 | Optional Arguments              | Description                                                                                             |
@@ -90,7 +90,7 @@ python main.py --job uncertainty-test --env-name d4rl:maze2d-open-v0 --dataset 1
 ```
 - Restoring query evaluation data from wandb:
 ```bash
-python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wandb-query-eval-data-run-path koulanurag/opcc-baselines-evaluate-queries/ahkjhdk
+python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wandb-query-eval-data-run-path <username>/<project-name>/<run-id>
 ```
 
 | Optional Arguments                                                                                                      | Description                                           |
