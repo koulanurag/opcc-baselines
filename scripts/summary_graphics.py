@@ -138,6 +138,20 @@ def sr_coverage_plot_and_tex(info_dict, category_name, plot_name, path):
     fig.savefig(os.path.join(path, 'sr_coverage.png'), bbox_inches="tight")
     plt.close(fig)
 
+    tex = "\\begin{figure}[h!]\n"
+    tex += "\centering\n"
+    tex += "\includegraphics[scale=0.7]{assets/query-eval/" \
+           + category_name + "/" + plot_name + "/sr_coverage.png}\n"
+    tex += "\caption{Selective-risk coverage curves for  \emph{" + plot_name + "}" + \
+           " in \emph{" + category_name + "} environments } " + "\n"
+    tex += "\label{fig:" + category_name + '-' + plot_name + "}" + "\n"
+    tex += "\\end{figure}"
+
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, 'sr_coverage.tex'), 'w') as f:
+        f.write(tex)
+    return tex
+
 
 def latex_table(info_dict, category_name, table_name, path):
     tex = "\\begin{table}[h!]" + "\n" + \
