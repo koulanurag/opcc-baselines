@@ -65,7 +65,7 @@ Example:
 ```bash
 python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
 ```
-- Restoring dynamics from wandb:
+- Restoring dynamics from wandb(if used in train-dynamics phase):
 ```bash
 python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dynamics-run-path <username>/<project-name>/<run-id>
 ```
@@ -88,7 +88,7 @@ Example:
 ```bash
 python main.py --job uncertainty-test --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
 ```
-- Restoring query evaluation data from wandb:
+- Restoring query evaluation data from wandb(If used in query-evaluation phase):
 ```bash
 python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wandb-query-eval-data-run-path <username>/<project-name>/<run-id>
 ```
@@ -101,7 +101,89 @@ python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wan
 
 ## Reproducibility
 
-Please refer to Wiki for complete list of commands for each environment
+1. **Dynamics training** results can be found over [here](https://wandb.ai/koulanurag/opcc-baselines-train-dynamics) and corresponding commands for different configurations can be retrieved using following snippet.
+
+```python
+import json
+import wandb
+
+api = wandb.Api()
+runs = api.runs(path='koulanurag/opcc-baselines-train-dynamics',
+filters={"config.env_name": "HalfCheetah-v2",
+         "config.dataset_name": "random", 
+         "config.deterministic": True, # options: [True, False]
+         "config.dynamics_type": "feed-forward", # options : ["feed-forward","autoregressive"]
+         "config.constant_prior_scale": 5, # options: [0,5]
+         "config.normalize": True, # options : [True, False]
+         "config.dynamics_seed": 0 # options: [0,1,2,3,4]
+         })
+
+for run in runs:
+    meta = json.load(run.file("wandb-metadata.json").download(replace=True))
+    program = ["python"] + [meta["program"]] + meta["args"]
+    print(" ".join(program))
+
+```
+
+2. **Query Evaluation** results can be found [here](https://wandb.ai/koulanurag/opcc-baselines-evaluate-queries) and corresponding commands can be retreived using following snippet.
+
+```python
+import json
+import wandb
+
+api = wandb.Api()
+runs = api.runs(path='koulanurag/opcc-baselines-evaluate-queries',
+filters={"config.env_name": "HalfCheetah-v2",
+         "config.dataset_name": "random", 
+         "config.deterministic": True, # options: [True, False]
+         "config.dynamics_type": "feed-forward", # options : ["feed-forward","autoregressive"]
+         "config.constant_prior_scale": 5, # options: [0,5]
+         "config.normalize": True, # options : [True, False]
+         "config.dynamics_seed": 0, # options: [0,1,2,3,4]
+         "config.clip_obs": True, # options: [True]
+         "config.clip_reward": True # options: [True]
+         })
+
+for run in runs:
+    meta = json.load(run.file("wandb-metadata.json").download(replace=True))
+    program = ["python"] + [meta["program"]] + meta["args"]
+    print(" ".join(program))
+    
+    # if you run the printed command , it will download
+    # pre-trained dynamics and run query evaluation using it.
+
+```
+
+
+3. **Uncertainty Test** results can be found [here](https://wandb.ai/koulanurag/opcc-baselines-uncertainty-test) and corresponding commands can be retrieved using following snippet.
+
+```python
+import json
+import wandb
+
+api = wandb.Api()
+runs = api.runs(path='koulanurag/opcc-baselines-uncertainty-test',
+filters={"config.env_name": "HalfCheetah-v2",
+         "config.dataset_name": "random", 
+         "config.deterministic": True, # options: [True, False]
+         "config.dynamics_type": "feed-forward", # options : ["feed-forward","autoregressive"]
+         "config.constant_prior_scale": 5, # options: [0,5]
+         "config.normalize": True, # options : [True, False]
+         "config.dynamics_seed": 0, # options: [0,1,2,3,4]
+         "config.clip_obs": True, # options: [True]
+         "config.clip_reward": True, # options: [True]
+         "config.uncertainty_test_type": "ensemble-voting" # options: [ensemble-voting, paired-confidence-interval, unpaired-confidence-interval]
+         })
+
+for run in runs:
+    meta = json.load(run.file("wandb-metadata.json").download(replace=True))
+    program = ["python"] + [meta["program"]] + meta["args"]
+    print(" ".join(program))
+    
+    # if you run the printed command , it will download
+    # query-evaluation results and run uncertainty-tests over
+    # them to report opcc metrics.
+```
 
 ## Contact
 
