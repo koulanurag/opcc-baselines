@@ -8,7 +8,7 @@ Baseline and Benchmarks"
 
 ## Installation
 
-#### 1. Setup [opcc](https://github.com/koulanurag/opcc) [v0.0.1](https://github.com/koulanurag/opcc/releases/tag/v0.0.1)
+#### 1. Setup [opcc](https://github.com/koulanurag/opcc) [[v0.0.1]](https://github.com/koulanurag/opcc/releases/tag/v0.0.1)
    _(We recommend familarizing with [opcc usage](https://github.com/koulanurag/opcc#usage) before using baselines)_
 
 #### 2. Python dependencies could be installed using:
