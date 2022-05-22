@@ -1,8 +1,12 @@
+import json
 import os
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import wandb
+from scipy import stats
 
 
 def camel_case_split(str):
@@ -14,9 +18,11 @@ def camel_case_split(str):
 
 
 def score(metric_info):
+    cf = round(abs(metric_info['confidence_interval'][0]
+                   - metric_info['mean']), 3)
     return "$" + (str(round(metric_info['mean'], 3))
                   + "\pm"
-                  + str(round(metric_info['std'], 2))) + "$"
+                  + (str(cf) if cf > 0 else "(<0.001)")) + "$"
 
 
 def metrics(metrics_data, sr_coverage_data, key):
@@ -46,18 +52,30 @@ def metrics(metrics_data, sr_coverage_data, key):
 
             if env_name not in info:
                 info[env_name] = {}
-
+            n = len(aurcc)
             info[env_name][_num] = {'aurcc': {'mean': aurcc.mean(),
                                               'std': aurcc.std(),
+                                              'confidence_interval': stats.norm.interval(
+                                                  0.95, aurcc.mean(),
+                                                  aurcc.std()/np.sqrt(n) + 1e-5),
                                               'n': len(aurcc)},
                                     'rpp': {'mean': rpp.mean(),
                                             'std': rpp.std(),
-                                            'n': len(aurcc)},
+                                            'confidence_interval': stats.norm.interval(
+                                                0.95, rpp.mean(),
+                                                rpp.std()/np.sqrt(n)  + 1e-5),
+                                            'n': len(rpp)},
                                     'cr_10': {'mean': cr_10.mean(),
                                               'std': cr_10.std(),
+                                              'confidence_interval': stats.norm.interval(
+                                                  0.95, cr_10.mean(),
+                                                  cr_10.std()/np.sqrt(n) + 1e-5),
                                               'n': len(cr_10)},
                                     'loss': {'mean': loss.mean(),
                                              'std': loss.std(),
+                                             'confidence_interval': stats.norm.interval(
+                                                 0.95, loss.mean(),
+                                                 loss.std()/np.sqrt(n) + 1e-5),
                                              'n': len(loss)},
                                     'risk': {'mean': np.mean(risk, axis=1),
                                              'std': np.std(risk, axis=1),
@@ -166,8 +184,7 @@ def latex_table(info_dict, category_name, table_name, path):
     tex += "Env. & " + table_name + " & AURCC$(\\downarrow)$ &" \
                                     " RPP$(\\downarrow)$ &" \
                                     " $CR_K(\\uparrow)$ & " \
-                                    " loss$(\\downarrow)$ & " \
-                                    "runs \\\\" + '\n'
+                                    " loss$(\\downarrow)$ \\\\" + '\n'
     tex += "\\midrule" + '\n'
     for env_i, env_name in enumerate(info_dict.keys()):
         if len(info_dict[env_name]) > 1:
@@ -182,7 +199,6 @@ def latex_table(info_dict, category_name, table_name, path):
                    + " & " + score(info_dict[env_name][cat]['rpp']) \
                    + " & " + score(info_dict[env_name][cat]['cr_10']) \
                    + " & " + score(info_dict[env_name][cat]['loss']) \
-                   + " & " + str(info_dict[env_name][cat]['aurcc']['n']) \
                    + " \\\\ \n"
         if env_i == len(info_dict) - 1:
             tex += "\\bottomrule \n"
