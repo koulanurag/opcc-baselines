@@ -1,7 +1,7 @@
 # opcc-baselines
 
-Code for baselines presented in research paper "Offline Policy Comparison with Confidence:
-Baseline and Benchmarks"
+Code for baselines presented in research paper ["Offline Policy Comparison with Confidence:
+Baseline and Benchmarks"](https://arxiv.org/abs/2205.10739)
 
 [![Python application](https://github.com/koulanurag/opcc-baselines/actions/workflows/python-app.yml/badge.svg)](https://github.com/koulanurag/opcc-baselines/actions/workflows/python-app.yml)
 ![License](https://img.shields.io/github/license/koulanurag/opcc-baselines)
