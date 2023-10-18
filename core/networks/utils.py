@@ -10,8 +10,9 @@ def weights_init(m):
             cond = torch.logical_or(t < mean - 2 * std, t > mean + 2 * std)
             if not torch.sum(cond):
                 break
-            t = torch.where(cond, torch.nn.init.normal_(torch.ones(t.shape),
-                                                        mean=mean, std=std), t)
+            t = torch.where(
+                cond, torch.nn.init.normal_(torch.ones(t.shape), mean=mean, std=std), t
+            )
         return t
 
     if type(m) == nn.Linear:
@@ -33,10 +34,12 @@ def is_terminal(env_name, obs):
 
         height = obs[:, 0]
         angle = obs[:, 1]
-        not_done = (np.isfinite(obs).all(axis=-1)
-                    * np.abs(obs[:, 1:] < 100).all(axis=-1)
-                    * (height > .7)
-                    * (np.abs(angle) < .2))
+        not_done = (
+            np.isfinite(obs).all(axis=-1)
+            * np.abs(obs[:, 1:] < 100).all(axis=-1)
+            * (height > 0.7)
+            * (np.abs(angle) < 0.2)
+        )
         not_done = not_done.bool()
         done = ~not_done
         return done
@@ -45,15 +48,12 @@ def is_terminal(env_name, obs):
 
         height = obs[:, 0]
         angle = obs[:, 1]
-        not_done = ((height > 0.8)
-                    * (height < 2.0)
-                    * (angle > -1.0)
-                    * (angle < 1.0))
+        not_done = (height > 0.8) * (height < 2.0) * (angle > -1.0) * (angle < 1.0)
         not_done = not_done.bool()
         done = ~not_done
         return done
-    elif 'maze' in env_name or env_name == 'HalfCheetah-v2':
+    elif "maze" in env_name or env_name == "HalfCheetah-v2":
         done = torch.zeros(obs.shape[:1]).bool()
         return done
     else:
-        raise ValueError('{} termination rule not found'.format(env_name))
+        raise ValueError("{} termination rule not found".format(env_name))
