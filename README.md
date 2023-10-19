@@ -110,14 +110,15 @@ import wandb
 
 api = wandb.Api()
 runs = api.runs(path='koulanurag/opcc-baselines-train-dynamics',
-filters={"config.env_name": "HalfCheetah-v2",
-         "config.dataset_name": "random", 
-         "config.deterministic": True, # options: [True, False]
-         "config.dynamics_type": "feed-forward", # options : ["feed-forward","autoregressive"]
-         "config.constant_prior_scale": 5, # options: [0,5]
-         "config.normalize": True, # options : [True, False]
-         "config.dynamics_seed": 0 # options: [0,1,2,3,4]
-         })
+                filters={"config.env_name": "HalfCheetah-v2",
+                         "config.dataset_name": "random",
+                         "config.deterministic": True,  # options: [True, False]
+                         "config.dynamics_type": "feed-forward",  # options : ["feed-forward","autoregressive"]
+                         "config.constant_prior_scale": 5,  # options: [0,5]
+                         "config.normalize": True,  # options : [True, False]
+                         "config.dynamics_seed": 0  # options: [0,1,2,3,4]
+                         })
+
 
 for run in runs:
     meta = json.load(run.file("wandb-metadata.json").download(replace=True))
@@ -185,6 +186,13 @@ for run in runs:
     # query-evaluation results and run uncertainty-tests over
     # them to report opcc metrics.
 ```
+
+## Testing Code
+
+```console
+python -m pytest -v
+```
+
 
 ## Contact
 

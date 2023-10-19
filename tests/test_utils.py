@@ -65,7 +65,7 @@ def test_mc_return():
     # we receive state and pass on obs. to actor
     def _policy(x):
         # input shape => (batch, ensemble, state)
-        return policy_a.actor(x[:, :, 2:])
+        return policy_a(x[:, :, 2:])
 
     predict_1 = mc_return(
         fake_network,
