@@ -13,7 +13,7 @@ Baseline and Benchmarks"](https://arxiv.org/abs/2205.10739)
 
 #### 2. Python dependencies could be installed using:
 
-```bash
+```console
 git clone https://github.com/koulanurag/opcc-baselines.git
 cd opcc-baselines
 python3 -m pip install --upgrade pip setuptools wheel
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 #### Train dynamics:
 
 Example: 
-```bash
+```console
 python main.py --job train-dynamics --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
 ```
 
@@ -63,11 +63,11 @@ python main.py --job train-dynamics --env-name d4rl:maze2d-open-v0 --dataset 1m 
 
 Example:
 - Restoring dynamics locally:
-```bash
+```console
 python main.py --job evaluate-queries --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
 ```
 - Restoring dynamics from wandb(if used in train-dynamics phase):
-```bash
+```console
 python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dynamics-run-path <username>/<project-name>/<run-id>
 ```
 
@@ -86,11 +86,11 @@ python main.py --job evaluate-queries --restore-dynamics-from-wandb --wandb-dyna
 
 Example:
 - Restoring query evaluation data locally:
-```bash
+```console
 python main.py --job uncertainty-test --env-name d4rl:maze2d-open-v0 --dataset 1m --num-ensemble 10
 ```
 - Restoring query evaluation data from wandb(If used in query-evaluation phase):
-```bash
+```console
 python main.py --job uncertainty-test --restore-query-eval-data-from-wandb --wandb-query-eval-data-run-path <username>/<project-name>/<run-id>
 ```
 
