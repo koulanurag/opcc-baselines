@@ -5,6 +5,7 @@ Baseline and Benchmarks"](https://arxiv.org/abs/2205.10739)
 
 [![Python application](https://github.com/koulanurag/opcc-baselines/actions/workflows/python-app.yml/badge.svg)](https://github.com/koulanurag/opcc-baselines/actions/workflows/python-app.yml)
 ![License](https://img.shields.io/github/license/koulanurag/opcc-baselines)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## Installation
 
