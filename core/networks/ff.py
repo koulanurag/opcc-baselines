@@ -16,16 +16,27 @@ class FFDynamicsNetwork(Base):
 
     """
 
-    def __init__(self, env_name, dataset_name, obs_size, action_size,
-                 hidden_size, deterministic=True, activation_function='relu',
-                 lr=1e-3, prior_scale=0):
-        Base.__init__(self,
-                      env_name=env_name,
-                      dataset_name=dataset_name,
-                      obs_size=obs_size,
-                      action_size=action_size,
-                      deterministic=deterministic,
-                      prior_scale=prior_scale)
+    def __init__(
+        self,
+        env_name,
+        dataset_name,
+        obs_size,
+        action_size,
+        hidden_size,
+        deterministic=True,
+        activation_function="relu",
+        lr=1e-3,
+        prior_scale=0,
+    ):
+        Base.__init__(
+            self,
+            env_name=env_name,
+            dataset_name=dataset_name,
+            obs_size=obs_size,
+            action_size=action_size,
+            deterministic=deterministic,
+            prior_scale=prior_scale,
+        )
 
         self.act_fn = getattr(F, activation_function)
         self.fc1 = nn.Linear(self.obs_size + action_size, hidden_size)
@@ -39,7 +50,7 @@ class FFDynamicsNetwork(Base):
         self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
         for name, param in self.named_parameters():
-            if 'prior' in name:
+            if "prior" in name:
                 param.requires_grad = False
 
         self.apply(weights_init)
@@ -72,8 +83,9 @@ class FFDynamicsNetwork(Base):
         self._action_std = nn.Parameter(_action_std, requires_grad=False)
 
         # create optimizer with no prior parameters
-        non_prior_params = [param for name, param in self.named_parameters()
-                            if 'prior' not in name]
+        non_prior_params = [
+            param for name, param in self.named_parameters() if "prior" not in name
+        ]
         self.optimizer = torch.optim.Adam(non_prior_params, lr=lr)
 
     def to(self, device, *args, **kwargs):
@@ -89,8 +101,8 @@ class FFDynamicsNetwork(Base):
 
     @torch.no_grad()
     def _prior_logits(self, obs, action):
-        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(action.shape) == 2, 'expected (N x action-size) actions'
+        assert len(obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(action.shape) == 2, "expected (N x action-size) actions"
 
         hidden = torch.cat((obs, action), dim=1)
         hidden = self.act_fn(self.prior_fc1(hidden))
@@ -99,21 +111,21 @@ class FFDynamicsNetwork(Base):
         output = self.prior_fc4(hidden)
         output = torch.tanh(output)
 
-        mu = output[:, :self.obs_size + 1]
-        log_var_logit = output[:, self.obs_size + 1:]
+        mu = output[:, : self.obs_size + 1]
+        log_var_logit = output[:, self.obs_size + 1 :]
         return mu, log_var_logit
 
     def _logits(self, obs, action):
-        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(action.shape) == 2, 'expected (N x action-size) actions'
+        assert len(obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(action.shape) == 2, "expected (N x action-size) actions"
 
         hidden = self.act_fn(self.fc1(torch.cat((obs, action), dim=1)))
         hidden = self.act_fn(self.fc2(hidden))
         hidden = self.act_fn(self.fc3(hidden))
         output = self.fc4(hidden)
 
-        mu = output[:, :self.obs_size + 1]
-        log_var_logit = output[:, self.obs_size + 1:]
+        mu = output[:, : self.obs_size + 1]
+        log_var_logit = output[:, self.obs_size + 1 :]
         return mu, log_var_logit
 
     def forward(self, obs, action):
@@ -128,7 +140,6 @@ class FFDynamicsNetwork(Base):
         return mu, log_var
 
     def step(self, obs, action):
-
         # normalize obs. and action
         obs = self.normalize_obs(obs)
         action = self.normalize_action(action)
@@ -160,12 +171,13 @@ class FFDynamicsNetwork(Base):
         return next_obs, reward, done
 
     def update(self, obs, action, next_obs, reward):
-        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(action.shape) == 2, 'expected (N x action-size) actions'
-        assert len(next_obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(reward.shape) == 2, 'expected (N x 1) reward'
-        assert len(obs) == len(action) == len(next_obs) == len(reward), \
-            'batch size is not same'
+        assert len(obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(action.shape) == 2, "expected (N x action-size) actions"
+        assert len(next_obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(reward.shape) == 2, "expected (N x 1) reward"
+        assert (
+            len(obs) == len(action) == len(next_obs) == len(reward)
+        ), "batch size is not same"
 
         obs = obs.contiguous()
         action = action.contiguous()
@@ -193,7 +205,7 @@ class FFDynamicsNetwork(Base):
         loss.backward()
         self.optimizer.step()
 
-        return {'total': loss.item()}
+        return {"total": loss.item()}
 
     @property
     def obs_min(self):

@@ -24,16 +24,27 @@ class AgDynamicsNetwork(Base):
     Reference : https://arxiv.org/abs/2104.13877
     """
 
-    def __init__(self, env_name, dataset_name, obs_size, action_size,
-                 hidden_size, deterministic=True,
-                 activation_function='relu', lr=1e-3, prior_scale=0):
-        Base.__init__(self,
-                      env_name=env_name,
-                      dataset_name=dataset_name,
-                      obs_size=obs_size,
-                      action_size=action_size,
-                      deterministic=deterministic,
-                      prior_scale=prior_scale)
+    def __init__(
+        self,
+        env_name,
+        dataset_name,
+        obs_size,
+        action_size,
+        hidden_size,
+        deterministic=True,
+        activation_function="relu",
+        lr=1e-3,
+        prior_scale=0,
+    ):
+        Base.__init__(
+            self,
+            env_name=env_name,
+            dataset_name=dataset_name,
+            obs_size=obs_size,
+            action_size=action_size,
+            deterministic=deterministic,
+            prior_scale=prior_scale,
+        )
 
         self.act_fn = getattr(F, activation_function)
         self._input_size = 3 * self.obs_size + self.action_size + 1
@@ -48,7 +59,7 @@ class AgDynamicsNetwork(Base):
         self.prior_fc4 = nn.Linear(hidden_size, 2 * obs_size + 2)
 
         for name, param in self.named_parameters():
-            if 'prior' in name:
+            if "prior" in name:
                 param.requires_grad = False
 
         self.apply(weights_init)
@@ -81,8 +92,9 @@ class AgDynamicsNetwork(Base):
         self._action_std = nn.Parameter(_action_std, requires_grad=False)
 
         # create optimizer with no prior parameters
-        non_prior_params = [param for name, param in self.named_parameters()
-                            if 'prior' not in name]
+        non_prior_params = [
+            param for name, param in self.named_parameters() if "prior" not in name
+        ]
         self.optimizer = torch.optim.Adam(non_prior_params, lr=lr)
 
     def to(self, device, *args, **kwargs):
@@ -98,8 +110,8 @@ class AgDynamicsNetwork(Base):
 
     @torch.no_grad()
     def _prior_logits(self, obs, action):
-        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(action.shape) == 2, 'expected (N x action-size) actions'
+        assert len(obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(action.shape) == 2, "expected (N x action-size) actions"
 
         hidden = torch.cat((obs, action), dim=1)
         hidden = self.act_fn(self.prior_fc1(hidden))
@@ -108,13 +120,13 @@ class AgDynamicsNetwork(Base):
         output = self.prior_fc4(hidden)
         output = torch.tanh(output)
 
-        mu = output[:, :self.obs_size + 1]
-        log_var_logit = output[:, self.obs_size + 1:]
+        mu = output[:, : self.obs_size + 1]
+        log_var_logit = output[:, self.obs_size + 1 :]
         return mu, log_var_logit
 
     def _logits(self, obs, action):
-        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(action.shape) == 2, 'expected (N x action-size) actions'
+        assert len(obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(action.shape) == 2, "expected (N x action-size) actions"
 
         hidden = self.act_fn(self.fc1(torch.cat((obs, action), dim=1)))
         hidden = self.act_fn(self.fc2(hidden))
@@ -127,10 +139,12 @@ class AgDynamicsNetwork(Base):
 
     def forward(self, obs, action):
         batch_size = obs.shape[0]
-        next_obs = torch.zeros((batch_size, self.obs_size),
-                               dtype=obs.dtype, device=obs.device)
-        one_hot = torch.zeros((batch_size, self.obs_size + 1),
-                              dtype=obs.dtype, device=obs.device)  # create obs
+        next_obs = torch.zeros(
+            (batch_size, self.obs_size), dtype=obs.dtype, device=obs.device
+        )
+        one_hot = torch.zeros(
+            (batch_size, self.obs_size + 1), dtype=obs.dtype, device=obs.device
+        )  # create obs
         one_hot[:, 0] = 1.0
 
         # estimate prior
@@ -141,7 +155,6 @@ class AgDynamicsNetwork(Base):
         # predictions
         reward, mu, log_var = None, None, None
         for obs_i in range(self.obs_size + 1):  # add dimension for reward
-
             # create obs
             _obs = torch.cat((obs, next_obs.detach(), one_hot), dim=1)
 
@@ -150,10 +163,8 @@ class AgDynamicsNetwork(Base):
             mu_i += self.prior_scale * prior_mu[:, obs_i]
             log_var_logit_i += self.prior_scale * prior_log_var_logit[:, obs_i]
 
-            log_var_i = (self.max_logvar
-                         - F.softplus(self.max_logvar - log_var_logit_i))
-            log_var_i = (self.min_logvar
-                         + F.softplus(log_var_i - self.min_logvar))
+            log_var_i = self.max_logvar - F.softplus(self.max_logvar - log_var_logit_i)
+            log_var_i = self.min_logvar + F.softplus(log_var_i - self.min_logvar)
 
             if obs_i == 0:
                 mu = mu_i.unsqueeze(-1)
@@ -174,8 +185,7 @@ class AgDynamicsNetwork(Base):
                 # prediction are delta observation
                 next_obs[:, obs_i] = output + obs[:, obs_i]
                 if self.is_obs_clip_enabled:
-                    next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i],
-                                                       obs_i)
+                    next_obs[:, obs_i] = self.clip_obs(next_obs[:, obs_i], obs_i)
             else:
                 if self.is_reward_clip_enabled:
                     reward = self.clip_reward(output)
@@ -203,12 +213,13 @@ class AgDynamicsNetwork(Base):
         return next_obs, reward, done
 
     def update(self, obs, action, next_obs, reward):
-        assert len(obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(action.shape) == 2, 'expected (N x action-size) actions'
-        assert len(next_obs.shape) == 2, 'expected (N x obs-size) observation'
-        assert len(reward.shape) == 2, 'expected (N x 1) reward'
-        assert len(obs) == len(action) == len(next_obs) == len(reward), \
-            'batch size is not same'
+        assert len(obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(action.shape) == 2, "expected (N x action-size) actions"
+        assert len(next_obs.shape) == 2, "expected (N x obs-size) observation"
+        assert len(reward.shape) == 2, "expected (N x 1) reward"
+        assert (
+            len(obs) == len(action) == len(next_obs) == len(reward)
+        ), "batch size is not same"
 
         obs = obs.contiguous()
         action = action.contiguous()
@@ -236,7 +247,7 @@ class AgDynamicsNetwork(Base):
         loss.backward()
         self.optimizer.step()
 
-        return {'total': loss.item()}
+        return {"total": loss.item()}
 
     @property
     def obs_min(self):

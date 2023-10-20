@@ -39,11 +39,10 @@ def unpaired_confidence_interval(pred_a, pred_b):
         conf_interval = scipy.stats.t.interval(conf_level, df, loc, scale)
         res_low_b, res_high_b = conf_interval
 
-        abstain_filter = np.logical_or(np.logical_and(res_low_a <= res_low_b,
-                                                      res_low_b <= res_high_a),
-                                       np.logical_and(res_low_a <= res_high_b,
-                                                      res_high_b <= res_high_a)
-                                       )
+        abstain_filter = np.logical_or(
+            np.logical_and(res_low_a <= res_low_b, res_low_b <= res_high_a),
+            np.logical_and(res_low_a <= res_high_b, res_high_b <= res_high_a),
+        )
         accept_filter = ~abstain_filter
 
         # true
@@ -56,28 +55,36 @@ def unpaired_confidence_interval(pred_a, pred_b):
     return pred_label, pred_conf
 
 
-def confidence_interval(eval_df: pd.DataFrame,
-                        ensemble_size_interval: int,
-                        num_ensemble: int,
-                        paired: bool = True):
+def confidence_interval(
+    eval_df: pd.DataFrame,
+    ensemble_size_interval: int,
+    num_ensemble: int,
+    paired: bool = True,
+):
     # extract query predictions and corresponding targets
-    pred_a = [np.expand_dims(eval_df['pred_a_{}'.format(e_i)].values, 1)
-              for e_i in range(num_ensemble)]
+    pred_a = [
+        np.expand_dims(eval_df["pred_a_{}".format(e_i)].values, 1)
+        for e_i in range(num_ensemble)
+    ]
     pred_a = np.concatenate(pred_a, axis=1)
-    pred_b = [np.expand_dims(eval_df['pred_b_{}'.format(e_i)].values, 1)
-              for e_i in range(num_ensemble)]
+    pred_b = [
+        np.expand_dims(eval_df["pred_b_{}".format(e_i)].values, 1)
+        for e_i in range(num_ensemble)
+    ]
     pred_b = np.concatenate(pred_b, axis=1)
-    target = eval_df['target'].values
-    target_return_a = eval_df['return_a'].values
-    target_return_b = eval_df['return_b'].values
-    horizons = eval_df['horizon'].values
+    target = eval_df["target"].values
+    target_return_a = eval_df["return_a"].values
+    target_return_b = eval_df["return_b"].values
+    horizons = eval_df["horizon"].values
     horizon_candidates = np.unique(horizons, axis=0)
 
     # process data for various ensemble counts and query horizons
     uncertainty_dict = {}
-    for ensemble_count in np.arange(min(ensemble_size_interval, num_ensemble),
-                                    num_ensemble + 1,
-                                    ensemble_size_interval):
+    for ensemble_count in np.arange(
+        min(ensemble_size_interval, num_ensemble),
+        num_ensemble + 1,
+        ensemble_size_interval,
+    ):
         uncertainty_dict[ensemble_count] = {}
         for horizon in horizon_candidates:
             _filter = horizons == horizon
@@ -85,17 +92,22 @@ def confidence_interval(eval_df: pd.DataFrame,
             if paired:
                 prediction, confidence = paired_confidence_interval(
                     pred_a[:, :ensemble_count][_filter],
-                    pred_b[:, :ensemble_count][_filter])
+                    pred_b[:, :ensemble_count][_filter],
+                )
             else:
                 prediction, confidence = unpaired_confidence_interval(
                     pred_a[:, :ensemble_count][_filter],
-                    pred_b[:, :ensemble_count][_filter])
+                    pred_b[:, :ensemble_count][_filter],
+                )
 
-            info = {'prediction': prediction,
-                    'target': target[_filter],
-                    'confidence': confidence,
-                    'value_regret': np.abs(target_return_a[_filter]
-                                           - target_return_b[_filter])}
+            info = {
+                "prediction": prediction,
+                "target": target[_filter],
+                "confidence": confidence,
+                "value_regret": np.abs(
+                    target_return_a[_filter] - target_return_b[_filter]
+                ),
+            }
             uncertainty_dict[ensemble_count][horizon] = info
 
     return uncertainty_dict
