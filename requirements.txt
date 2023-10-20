@@ -3,3 +3,4 @@ pandas
 wandb
 sklearn
 tqdm
+black
